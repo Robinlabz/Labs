@@ -4,13 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Coin — Robin Labs Pad</title>
-<link rel="icon" href="assets/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png" />
+<link rel="apple-touch-icon" href="assets/favicon-180.png" />
+<meta name="theme-color" content="#080a04" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-:root{--bg:#0d0f07;--bg-2:#12150a;--bg-3:#1a1e10;--panel:#15180d;--line:rgba(204,255,0,.14);--line-2:rgba(255,255,255,.08);
-  --line-strong:rgba(204,255,0,.34);--ink:#f6f7f1;--ink-dim:#a7ad97;--ink-faint:#7f8570;--lime:#ccff00;--lime-soft:#e4ff7a;--lime-deep:#a8d600;--green:#48d16a;--red:#ff5a52;--gold:#f5c542;
+:root{--bg:#0d0f07;--bg-2:#12150a;--bg-3:#1a1e10;--panel:#15180d;--line:rgba(220,233,5,.14);--line-2:rgba(255,255,255,.08);
+  --line-strong:rgba(220,233,5,.34);--ink:#f6f7f1;--ink-dim:#a7ad97;--ink-faint:#7f8570;--lime:#dce905;--lime-soft:#e4ff7a;--lime-deep:#a8d600;--green:#48d16a;--red:#ff5a52;--gold:#f5c542;
   --disp:"Bebas Neue",Impact,sans-serif;--sans:"Plus Jakarta Sans",system-ui,sans-serif;--mono:ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}svg,img,iframe{display:block}
@@ -26,9 +29,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transf
 .btn-ghost{border-color:var(--line-strong);color:var(--ink);background:none}
 .btn-gold{background:var(--gold);color:#10140a}
 .banner{height:180px;border-radius:0 0 16px 16px;background:linear-gradient(120deg,#1a1e10,#0d0f07);position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
-.banner .art{position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(204,255,0,.22),transparent 60%),radial-gradient(circle at 80% 60%,rgba(138,99,224,.18),transparent 55%)}
+.banner .art{position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(220,233,5,.22),transparent 60%),radial-gradient(circle at 80% 60%,rgba(138,99,224,.18),transparent 55%)}
 .idbar{display:flex;gap:16px;align-items:flex-end;margin-top:-46px;position:relative;z-index:2}
-.idbar .pfp{width:92px;height:92px;border-radius:18px;border:3px solid var(--bg);flex:none;display:grid;place-items:center;font-size:2rem;font-weight:800;color:#10140a;background:linear-gradient(135deg,#ccff00,#8a63e0)}
+.idbar .pfp{width:92px;height:92px;border-radius:18px;border:3px solid var(--bg);flex:none;display:grid;place-items:center;font-size:2rem;font-weight:800;color:#10140a;background:linear-gradient(135deg,#dce905,#8a63e0)}
 .idbar .who{padding-bottom:6px;flex:1;min-width:0}
 .idbar h1{font-size:2rem;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .idbar h1 .tk{color:var(--lime);font-size:1.2rem}
@@ -51,8 +54,21 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transf
 .sec{margin-top:16px;padding:16px}
 .sec h3{font-size:1.15rem;margin-bottom:8px}
 .sec p{color:var(--ink-dim);font-size:.9rem;margin:0}
-.holders .h{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line-2);font-size:.85rem}
+.holders .h{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-2);font-size:.85rem}
 .holders .h:last-child{border-bottom:none}.holders .mono{color:var(--ink-dim)}
+.holders .h a{color:var(--ink-dim)}.holders .h a:hover{color:var(--lime)}
+.phd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line-2)}
+.phd h3{margin:0}.phd .meta{font-family:var(--mono);font-size:.74rem;color:var(--ink-faint)}
+.phd .live{color:var(--green)}.phd .live::before{content:"● "}
+.trades{padding:4px 16px 10px}
+.trades .tr{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-2);font-size:.8rem}
+.trades .tr:last-child{border-bottom:none}
+.trades .ty{font-weight:800;font-size:.68rem;padding:2px 7px;border-radius:6px;letter-spacing:.03em}
+.trades .ty.buy{background:rgba(72,209,106,.15);color:var(--green)}
+.trades .ty.sell{background:rgba(255,90,82,.15);color:var(--red)}
+.trades .who{font-family:var(--mono);color:var(--ink-dim)}.trades .who:hover{color:var(--lime)}
+.trades .eth{font-weight:700}.trades .tm{color:var(--ink-faint);font-size:.72rem;font-family:var(--mono)}
+.empty{color:var(--ink-faint);text-align:center;padding:22px;font-size:.85rem}
 .buybox{padding:16px}
 .toggle{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-2);border-radius:11px;padding:5px;margin-bottom:14px}
 .toggle button{border:none;background:none;color:var(--ink-dim);font-weight:700;padding:9px;border-radius:8px;cursor:pointer;font-family:var(--sans)}
@@ -72,7 +88,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transf
 .bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--lime-deep),var(--lime))}
 .bar .mark{position:absolute;top:-3px;width:2px;height:15px;background:var(--gold)}
 .bar-lab{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink-dim)}.bar-lab b{color:var(--lime)}
-.floorpill{margin-top:12px;background:rgba(204,255,0,.1);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;font-size:.82rem}
+.floorpill{margin-top:12px;background:rgba(220,233,5,.1);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;font-size:.82rem}
 .floorpill b{color:var(--lime)}
 .devpanel{padding:16px;border-top:1px solid var(--line-2)}
 .devpanel .lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;color:var(--gold);text-transform:uppercase}
@@ -115,12 +131,19 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transf
         <div class="s"><div class="k">Stage</div><div class="v" id="stStage">—</div></div>
         <div class="s"><div class="k">Supply</div><div class="v">1B</div></div>
       </div>
-      <div class="panel sec"><h3>How this coin works</h3><p>Launched on Robin Labs — a real Uniswap v3 pair from block one. It walks up a bonding curve and, once it reaches the graduation window, posts <b style="color:var(--ink)">the Bond</b>: a protocol-owned floor it can’t be rugged below. Clean token, no transfer tax, LP locked forever.</p></div>
-      <div class="panel sec holders"><h3>Protocol holdings</h3>
-        <div class="h"><span class="mono">🌲 Sherwood — locked LP</span><b>after graduation</b></div>
-        <div class="h"><span class="mono">🎯 Bounty — WETH floor</span><b>after graduation</b></div>
-        <div class="h"><span class="mono">🏹 Ambush — reserve</span><b>25%</b></div>
+      <!-- live trades feed (green buys / red sells) -->
+      <div class="panel" style="margin-top:16px">
+        <div class="phd"><h3>Live trades</h3><span class="meta live" id="tradesMeta">live</span></div>
+        <div class="trades" id="tradesBody"><div class="empty">Loading trades…</div></div>
       </div>
+
+      <!-- holders (from the chain explorer) -->
+      <div class="panel" style="margin-top:16px">
+        <div class="phd"><h3>Holders</h3><span class="meta" id="holderCount">—</span></div>
+        <div class="trades holders" id="holdersBody"><div class="empty">Loading holders…</div></div>
+      </div>
+
+      <div class="panel sec"><h3>How this coin works</h3><p>Launched on Robin Labs — a real Uniswap v3 pair from block one. It walks up a bonding curve and, once it reaches the graduation window, posts <b style="color:var(--ink)">the Bond</b>: a protocol-owned floor it can’t be rugged below. Clean token, no transfer tax, LP locked forever.</p></div>
     </div>
 
     <div>
@@ -158,7 +181,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transf
             <button class="btn btn-ghost" id="collectBtn" type="button">Collect fees</button>
             <button class="btn btn-gold" id="burnBtn" type="button">Buy &amp; burn</button>
           </div>
-          <div class="tiny" id="devEsc">Uncollected sell fees: —</div>
+          <div class="tiny" id="devEsc">Uncollected (current): —</div>
+          <div class="tiny" id="devTotal">Lifetime earned: —</div>
         </div>
       </div>
       <div class="panel sec" style="margin-top:16px"><h3>Coin info</h3>
@@ -182,6 +206,10 @@ const ETH_USD = 1920;
 const q = new URLSearchParams(location.search);
 const TOKEN = (q.get('c') || '').trim();
 const fmt = (n) => n >= 1000 ? "$" + (n/1000).toFixed(n >= 10000 ? 0 : 1) + "k" : "$" + (n >= 1 ? Math.round(n) : n.toPrecision(2));
+const EXPL = 'https://robinhoodchain.blockscout.com';
+const fmtEth = (wei) => { const n = Number(wei) / 1e18; return n >= 1 ? n.toFixed(3) : n.toPrecision(2); };
+const fmtTok = (wei) => { const n = Number(wei) / 1e18; return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : Math.round(n); };
+const agoS = (ts) => { if (!ts) return ''; const s = Math.max(0, Math.floor(Date.now()/1000) - ts); return s<60?s+'s':s<3600?Math.floor(s/60)+'m':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'d'; };
 const setNote = (m, kind) => { const n = $('tradeNote'); n.textContent = m; n.style.color = kind === 'err' ? 'var(--red)' : kind === 'ok' ? 'var(--green)' : 'var(--ink-faint)'; };
 const refreshConnect = () => { const a = Pad.account(); $('connectBtn').textContent = a ? Pad.short(a) : 'Connect wallet'; };
 
@@ -256,7 +284,8 @@ $('burnBtn').addEventListener('click', async () => {
 });
 
 async function loadDevEsc(){
-  try { const w = await Pad.devEscrow(TOKEN); $('devEsc').textContent = 'Uncollected sell fees: ' + (+ (Number(w) / 1e18).toFixed(5)) + ' ETH'; } catch {}
+  try { const w = await Pad.devEscrow(TOKEN); $('devEsc').textContent = 'Uncollected (current): ' + (+ (Number(w) / 1e18).toFixed(5)) + ' ETH'; } catch {}
+  try { const f = await Pad.feeTotals(TOKEN); if (f) $('devTotal').textContent = 'Lifetime earned: ' + (+ (Number(f.dev) / 1e18).toFixed(5)) + ' ETH'; } catch {}
 }
 async function maybeShowDev(){
   const a = Pad.account();
@@ -274,7 +303,7 @@ async function loadCoin(){
   try { info = await Pad.curveInfo(tax.curve, TOKEN); } catch { info = null; }
 
   COIN = { token: TOKEN, curve: tax.curve, pool: tax.pool, dev: tax.projectWallet, symbol: meta.symbol, name: meta.name,
-    minGradTick: info?.minGradTick, gradTick: info?.gradTick };
+    minGradTick: info?.minGradTick, gradTick: info?.gradTick, bond: info?.bond };
 
   // header
   $('nm').textContent = meta.name;
@@ -300,7 +329,45 @@ async function loadCoin(){
   // bond / graduation panel
   renderBond(info);
   await maybeShowDev();
+  loadTrades(); loadHolders();
 }
+
+// ── live trades feed (green buys / red sells) ──
+async function loadTrades(){
+  const body = $('tradesBody');
+  let rows = [];
+  try { rows = await Pad.trades(TOKEN, 30); } catch {}
+  if (!rows || !rows.length){ body.innerHTML = '<div class="empty">No trades yet — be the first to buy 🟢</div>'; return; }
+  body.innerHTML = rows.map((t) => `<div class="tr">
+    <span class="ty ${t.side}">${t.side === 'buy' ? 'BUY' : 'SELL'}</span>
+    <a class="who" href="${EXPL}/tx/${t.tx}" target="_blank" rel="noopener">${Pad.short(t.actor)}</a>
+    <span class="eth">${fmtEth(t.eth)} ETH</span>
+    <span class="tm">${agoS(t.ts)}</span></div>`).join('');
+}
+
+// ── holders (from the chain explorer), protocol addresses labelled ──
+async function loadHolders(){
+  const body = $('holdersBody');
+  let h; try { h = await Pad.holders(TOKEN, 12); } catch { h = null; }
+  if (!h){ body.innerHTML = '<div class="empty">Holders appear once there\'s activity.</div>'; return; }
+  if (h.count != null) $('holderCount').textContent = h.count.toLocaleString() + ' holders';
+  const label = {};
+  if (COIN){
+    if (COIN.curve) label[COIN.curve.toLowerCase()] = '🏹 Bonding curve';
+    if (COIN.pool) label[COIN.pool.toLowerCase()] = '🦄 Uniswap pool';
+    if (COIN.dev) label[COIN.dev.toLowerCase()] = '👑 Creator';
+    if (COIN.bond && /^0x[0-9a-f]{40}$/i.test(COIN.bond)) label[COIN.bond.toLowerCase()] = '🌲 The Bond (floor)';
+  }
+  if (!h.top.length){ body.innerHTML = '<div class="empty">No holders yet.</div>'; return; }
+  body.innerHTML = h.top.map((o) => {
+    const name = label[o.address] || (o.name ? '📄 ' + o.name : (o.isContract ? '📄 Contract' : Pad.short(o.address)));
+    return `<div class="h"><a href="${EXPL}/address/${o.address}" target="_blank" rel="noopener">${name}</a><b>${o.pct.toFixed(o.pct >= 1 ? 1 : 2)}%</b></div>`;
+  }).join('');
+}
+
+// refresh the live feed periodically
+setInterval(() => { if (COIN) loadTrades(); }, 12000);
+setInterval(() => { if (COIN) loadHolders(); }, 30000);
 
 function renderBond(info){
   const t = $('bondTitle'), s = $('bondSub'), fill = $('bondFill'), lab = $('bondLab'), grad = $('gradBtn'), pill = $('floorPill'), mark = $('bondMark');

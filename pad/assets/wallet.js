@@ -402,6 +402,96 @@ export async function tokenMeta(token) {
   return { name, symbol };
 }
 
+// ── holders + trade/fee history — work with NO indexer (chain + explorer API) ─
+const EXPLORER_API = CHAIN.explorer.replace(/\/+$/, "") + "/api/v2";
+const _routerEvents = new ethers.Interface([
+  "event Bought(address indexed token, address indexed buyer, uint256 ethIn, uint256 fee, uint256 tokensOut)",
+  "event Sold(address indexed token, address indexed seller, uint256 tokensIn, uint256 fee, uint256 ethOut)",
+  "event FeeSplit(address indexed token, uint256 platform, uint256 deferred, uint256 platformCut, uint256 dev, uint256 floor, uint256 burn)",
+]);
+const _blkTs = new Map();
+async function _tsOf(bn) {
+  if (_blkTs.has(bn)) return _blkTs.get(bn);
+  try { const b = await _read.getBlock(bn); const t = b ? Number(b.timestamp) : 0; _blkTs.set(bn, t); return t; } catch { return 0; }
+}
+// Router logs over a range — one call if the RPC allows it, else chunked so a
+// range cap never breaks the read.
+async function _routerLogs(topics, { lookback = 400000, chunk = 50000 } = {}) {
+  const head = await _read.getBlockNumber();
+  const start = Math.max(0, head - lookback);
+  try { return await _read.getLogs({ address: CONTRACTS.padRouter, fromBlock: start, toBlock: head, topics }); }
+  catch {}
+  const out = [];
+  for (let lo = start; lo <= head; lo += chunk) {
+    const hi = Math.min(lo + chunk - 1, head);
+    try { out.push(...await _read.getLogs({ address: CONTRACTS.padRouter, fromBlock: lo, toBlock: hi, topics })); } catch {}
+  }
+  return out;
+}
+
+/// Holders + count, from the chain explorer's public API (no indexer needed).
+export async function holders(token, top = 12) {
+  const base = `${EXPLORER_API}/tokens/${token}`;
+  const [c, l] = await Promise.allSettled([
+    fetch(`${base}/counters`).then((r) => (r.ok ? r.json() : null)),
+    fetch(`${base}/holders`).then((r) => (r.ok ? r.json() : null)),
+  ]);
+  const count = c.status === "fulfilled" && c.value ? Number(c.value.token_holders_count) : null;
+  const items = l.status === "fulfilled" && l.value ? l.value.items || [] : [];
+  const supplyWei = Number(TOTAL_SUPPLY) * 1e18; // 1B * 1e18
+  const list = items.slice(0, top).map((it) => ({
+    address: (it.address?.hash || "").toLowerCase(),
+    isContract: !!it.address?.is_contract,
+    name: it.address?.name || null,
+    pct: supplyWei > 0 ? (Number(it.value || 0) / supplyWei) * 100 : 0,
+  }));
+  return { count: Number.isFinite(count) ? count : null, top: list };
+}
+
+/// Recent trades straight from chain (fallback when the indexer isn't running).
+export async function chainTrades(token, { limit = 30, lookback = 400000 } = {}) {
+  try {
+    const b = _routerEvents.getEvent("Bought").topicHash, s = _routerEvents.getEvent("Sold").topicHash;
+    const tok = ethers.zeroPadValue(token.toLowerCase(), 32);
+    const logs = await _routerLogs([[b, s], tok], { lookback });
+    const rows = logs.map((l) => {
+      const p = _routerEvents.parseLog(l); const buy = p.name === "Bought";
+      return {
+        side: buy ? "buy" : "sell", actor: (buy ? p.args.buyer : p.args.seller).toLowerCase(),
+        eth: (buy ? p.args.ethIn : p.args.ethOut).toString(),
+        tokens: (buy ? p.args.tokensOut : p.args.tokensIn).toString(),
+        block: l.blockNumber, tx: l.transactionHash,
+      };
+    }).sort((a, z) => z.block - a.block).slice(0, limit);
+    await Promise.all([...new Set(rows.map((r) => r.block))].map(async (bn) => {
+      const t = await _tsOf(bn); rows.forEach((r) => { if (r.block === bn) r.ts = t; });
+    }));
+    return rows;
+  } catch { return []; }
+}
+
+/// Best-available trades: the indexer API first (fast, complete), else chain.
+export async function trades(token, limit = 30) {
+  if (hasApi()) { const t = await recentTrades(token, limit); if (t.length) return t; }
+  return chainTrades(token, { limit });
+}
+
+/// Lifetime fee totals for a coin (dev/platform/floor/burn), summed from chain.
+export async function feeTotals(token) {
+  try {
+    const fs = _routerEvents.getEvent("FeeSplit").topicHash;
+    const tok = ethers.zeroPadValue(token.toLowerCase(), 32);
+    const logs = await _routerLogs([fs, tok], {});
+    let platform = 0n, dev = 0n, floor = 0n, burn = 0n;
+    for (const l of logs) {
+      const p = _routerEvents.parseLog(l);
+      platform += p.args.platform + p.args.deferred + p.args.platformCut;
+      dev += p.args.dev; floor += p.args.floor; burn += p.args.burn;
+    }
+    return { platform, dev, floor, burn };
+  } catch { return null; }
+}
+
 // expose a tiny global for the plain-HTML pages (no bundler)
 if (typeof window !== "undefined") {
   window.RobinPad = {
@@ -409,6 +499,9 @@ if (typeof window !== "undefined") {
     estimateDevBuyEth, isDeployed,
     curveInfo, devEscrow, graduate, setGradTarget, withdrawDev, burnDev, listCoins, tokenMeta,
     feed, stats, recentTrades, hasApi,
+    holders, trades, chainTrades, feeTotals,
   };
+  window.SheriffPad = window.RobinPad; // back-compat alias for existing pages
   window.dispatchEvent(new Event("robinpad:ready"));
+  window.dispatchEvent(new Event("sheriffpad:ready"));
 }

@@ -11,9 +11,9 @@
 <style>
   :root{
     --bg:#060803; --bg-2:#0a0e05; --ink:#f4f7ee; --dim:#93a382;
-    --lime:#c3f53c; --lime-2:#a6e017; --lime-deep:#7fae00;
-    --glow:0 0 22px rgba(195,245,60,.55);
-    --line:rgba(195,245,60,.28); --line-2:rgba(195,245,60,.14);
+    --lime:#dce905; --lime-2:#a6e017; --lime-deep:#7fae00;
+    --glow:0 0 22px rgba(220,233,5,.55);
+    --line:rgba(220,233,5,.28); --line-2:rgba(220,233,5,.14);
     --disp:"Bebas Neue",Oswald,Impact,sans-serif;
     --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
     --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -22,8 +22,8 @@
   html{scroll-behavior:smooth}
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;
-    background-image:radial-gradient(circle at 50% -10%,rgba(195,245,60,.10),transparent 45%),
-      linear-gradient(rgba(195,245,60,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(195,245,60,.035) 1px,transparent 1px);
+    background-image:radial-gradient(circle at 50% -10%,rgba(220,233,5,.10),transparent 45%),
+      linear-gradient(rgba(220,233,5,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(220,233,5,.035) 1px,transparent 1px);
     background-size:auto,42px 42px,42px 42px;background-position:0 0}
   .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
   h1,h2,h3,.disp{font-family:var(--disp);font-weight:400;text-transform:uppercase;letter-spacing:.01em;margin:0;line-height:.92}
@@ -31,9 +31,9 @@
   a{color:inherit;text-decoration:none}
   .btn{display:inline-flex;align-items:center;gap:.5em;font-weight:800;font-size:.98rem;border-radius:12px;padding:15px 26px;cursor:pointer;border:1px solid transparent;transition:.16s;font-family:var(--sans)}
   .btn-lime{background:var(--lime);color:#0a0e05;box-shadow:var(--glow)}
-  .btn-lime:hover{transform:translateY(-2px);box-shadow:0 0 34px rgba(195,245,60,.8)}
+  .btn-lime:hover{transform:translateY(-2px);box-shadow:0 0 34px rgba(220,233,5,.8)}
   .btn-ghost{border-color:var(--line);color:var(--ink)}
-  .btn-ghost:hover{background:rgba(195,245,60,.08);border-color:var(--lime)}
+  .btn-ghost:hover{background:rgba(220,233,5,.08);border-color:var(--lime)}
 
   /* ── brand mark ── */
   .mark{display:inline-flex;align-items:center;gap:14px}
@@ -49,7 +49,7 @@
   .hero{text-align:center;padding:64px 0 30px}
   .hero .eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.34em;color:var(--lime);text-transform:uppercase;margin-bottom:20px}
   .hero h1{font-size:clamp(3.4rem,12vw,7.2rem);text-shadow:0 4px 40px rgba(0,0,0,.6)}
-  .hero h1 .w{color:var(--ink)} .hero h1 .g{color:var(--lime);text-shadow:0 0 40px rgba(195,245,60,.45)}
+  .hero h1 .w{color:var(--ink)} .hero h1 .g{color:var(--lime);text-shadow:0 0 40px rgba(220,233,5,.45)}
   .hero .tag{font-family:var(--disp);font-size:clamp(1rem,2.6vw,1.5rem);letter-spacing:.14em;margin-top:14px;color:var(--dim)}
   .hero .tag b{color:var(--lime)}
   .hero .sub{max-width:56ch;margin:22px auto 0;color:#cfd6c4;font-size:1.12rem;line-height:1.55}
@@ -66,8 +66,8 @@
   .jrow.hot .jnum{border-color:var(--lime);box-shadow:var(--glow)}
   /* connector line */
   .journey .track{position:absolute;left:47px;top:70px;bottom:70px;width:2px;background:linear-gradient(var(--lime-deep),var(--line-2));z-index:0}
-  .jcard{border:1.5px solid var(--line);border-radius:16px;background:linear-gradient(180deg,rgba(195,245,60,.05),transparent);padding:16px 18px;display:flex;gap:14px;align-items:center}
-  .jrow.hot .jcard{border-color:var(--lime);box-shadow:0 0 30px rgba(195,245,60,.14) inset,0 0 22px rgba(195,245,60,.15)}
+  .jcard{border:1.5px solid var(--line);border-radius:16px;background:linear-gradient(180deg,rgba(220,233,5,.05),transparent);padding:16px 18px;display:flex;gap:14px;align-items:center}
+  .jrow.hot .jcard{border-color:var(--lime);box-shadow:0 0 30px rgba(220,233,5,.14) inset,0 0 22px rgba(220,233,5,.15)}
   .jcard .ic{width:48px;height:48px;flex:none;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--lime)}
   .jrow.hot .jcard .ic{border-color:var(--lime);box-shadow:var(--glow)}
   .jcard .ic svg{width:24px;height:24px}
@@ -88,7 +88,7 @@
 
   /* ── closer ── */
   .closer{margin:36px 0 20px;border:2px solid var(--lime);border-radius:20px;padding:34px 30px;text-align:center;
-    background:radial-gradient(circle at 50% 120%,rgba(195,245,60,.18),transparent 60%);box-shadow:0 0 40px rgba(195,245,60,.12)}
+    background:radial-gradient(circle at 50% 120%,rgba(220,233,5,.18),transparent 60%);box-shadow:0 0 40px rgba(220,233,5,.12)}
   .closer .mark{justify-content:center;margin-bottom:12px}
   .closer h2{font-size:clamp(1.8rem,5vw,3.2rem)}
   .closer h2 .g{color:var(--lime)}
@@ -104,9 +104,7 @@
 <!-- reusable R logomark: a bold R whose leg kicks up into an arrow (launch / growth) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="R" viewBox="0 0 100 100">
-    <path fill="currentColor" d="M20 8h34c17 0 28 10 28 25 0 12-7 20-18 23l20 28H70L52 58H38v26H20V8zm18 15v22h15c8 0 13-4 13-11s-5-11-13-11H38z"/>
-    <path fill="currentColor" d="M60 60l26 0-13-16z" opacity=".0"/>
-    <path fill="currentColor" d="M78 52l10 14H68z"/>
+    <image href="assets/logo-mark.png" x="0" y="0" width="100" height="100" />
   </symbol>
 </defs></svg>
 

@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Robin Labs — Platform Admin</title>
 <style>
-  :root{--bg:#060803;--panel:#0c1107;--ink:#f4f7ee;--dim:#93a382;--lime:#c3f53c;--line:rgba(195,245,60,.22);
+  :root{--bg:#060803;--panel:#0c1107;--ink:#f4f7ee;--dim:#93a382;--lime:#dce905;--line:rgba(220,233,5,.22);
     --ok:#7fdc4f;--bad:#e46a6a;--warn:#e4c869;--mono:ui-monospace,"SF Mono",Menlo,monospace;
     --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;
-    background-image:radial-gradient(circle at 100% -10%,rgba(195,245,60,.07),transparent 40%);min-height:100vh}
+    background-image:radial-gradient(circle at 100% -10%,rgba(220,233,5,.07),transparent 40%);min-height:100vh}
   .wrap{max-width:720px;margin:0 auto;padding:34px 20px 80px}
   h1{font-family:var(--sans);font-weight:800;font-size:1.6rem;letter-spacing:-.01em;margin:0 0 4px}
   .sub{color:var(--dim);font-size:.95rem;margin-bottom:22px}
@@ -18,18 +18,18 @@
   button{font-family:var(--sans);font-weight:700;border-radius:10px;padding:11px 18px;cursor:pointer;border:1px solid transparent;font-size:.92rem;transition:.15s}
   .lime{background:var(--lime);color:#0a0e05}.lime:hover{filter:brightness(1.08)}
   .lime:disabled{opacity:.4;cursor:not-allowed;filter:none}
-  .ghost{background:none;border-color:var(--line);color:var(--ink)}.ghost:hover{background:rgba(195,245,60,.08)}
+  .ghost{background:none;border-color:var(--line);color:var(--ink)}.ghost:hover{background:rgba(220,233,5,.08)}
   .who{font-family:var(--mono);font-size:.8rem;color:var(--dim)}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px;margin:14px 0}
   .card h2{font-size:1.1rem;margin:0 0 2px}
   .addr{font-family:var(--mono);font-size:.76rem;color:var(--lime);word-break:break-all;margin-bottom:12px}
-  .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.78rem;padding:4px 0;border-bottom:1px solid rgba(195,245,60,.08)}
+  .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.78rem;padding:4px 0;border-bottom:1px solid rgba(220,233,5,.08)}
   .row .k{color:var(--dim)}.row .v{text-align:right;word-break:break-all}
   .status{margin:12px 0;font-size:.86rem;font-weight:600}
   .status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.status.warn{color:var(--warn)}.status.dim{color:var(--dim)}
-  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(195,245,60,.05);padding:12px 15px;font-size:.85rem;margin:18px 0}
+  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(220,233,5,.05);padding:12px 15px;font-size:.85rem;margin:18px 0}
   a{color:var(--lime)}
-  code{font-family:var(--mono);background:rgba(195,245,60,.09);border-radius:4px;padding:1px 5px;font-size:.85em}
+  code{font-family:var(--mono);background:rgba(220,233,5,.09);border-radius:4px;padding:1px 5px;font-size:.85em}
 </style>
 </head>
 <body>

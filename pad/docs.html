@@ -11,8 +11,8 @@
 <style>
   :root{
     --bg:#060803; --bg-2:#0a0e05; --panel:#0c1107; --ink:#f4f7ee; --dim:#93a382;
-    --lime:#c3f53c; --lime-2:#a6e017; --lime-deep:#7fae00;
-    --line:rgba(195,245,60,.22); --line-2:rgba(195,245,60,.10);
+    --lime:#dce905; --lime-2:#a6e017; --lime-deep:#7fae00;
+    --line:rgba(220,233,5,.22); --line-2:rgba(220,233,5,.10);
     --code-bg:#0a0d06;
     --disp:"Bebas Neue",Oswald,Impact,sans-serif;
     --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
@@ -22,7 +22,7 @@
   html{scroll-behavior:smooth}
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
-    background-image:radial-gradient(circle at 100% -10%,rgba(195,245,60,.07),transparent 40%);line-height:1.6}
+    background-image:radial-gradient(circle at 100% -10%,rgba(220,233,5,.07),transparent 40%);line-height:1.6}
   a{color:var(--lime-2);text-decoration:none}
   a:hover{color:var(--lime)}
   h1,h2,h3,h4,.disp{font-family:var(--disp);font-weight:400;text-transform:uppercase;letter-spacing:.02em;line-height:1;margin:0}
@@ -32,21 +32,21 @@
   /* ── sidebar ── */
   aside{position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid var(--line-2);padding:22px 18px 60px;background:rgba(6,8,3,.6)}
   .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-  .brand svg{width:34px;height:34px;color:var(--lime);filter:drop-shadow(0 0 14px rgba(195,245,60,.5))}
+  .brand svg{width:34px;height:34px;color:var(--lime);filter:drop-shadow(0 0 14px rgba(220,233,5,.5))}
   .brand .wm{font-family:var(--disp);font-size:1.35rem;letter-spacing:.2em;line-height:.8}
   .brand .wm small{display:block;font-size:.46em;letter-spacing:.5em;color:var(--lime)}
   aside nav{display:flex;flex-direction:column;gap:1px}
   aside .grp{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--lime-deep);margin:18px 0 6px;padding-left:10px}
   aside nav a{color:var(--dim);padding:6px 10px;border-radius:8px;border-left:2px solid transparent;font-size:.9rem;font-weight:500}
-  aside nav a:hover{color:var(--ink);background:rgba(195,245,60,.05)}
-  aside nav a.on{color:var(--ink);border-left-color:var(--lime);background:rgba(195,245,60,.06)}
+  aside nav a:hover{color:var(--ink);background:rgba(220,233,5,.05)}
+  aside nav a.on{color:var(--ink);border-left-color:var(--lime);background:rgba(220,233,5,.06)}
 
   /* ── main ── */
   main{padding:34px 40px 120px;max-width:900px;min-width:0}
   .top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
   .top .links{display:flex;gap:8px;flex-wrap:wrap}
   .pill{border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:.8rem;color:var(--ink);font-weight:600}
-  .pill:hover{border-color:var(--lime);background:rgba(195,245,60,.06)}
+  .pill:hover{border-color:var(--lime);background:rgba(220,233,5,.06)}
   h1.title{font-size:3.4rem;margin:6px 0 4px}
   .lede{color:#cfd6c4;font-size:1.12rem;max-width:64ch}
   h2{font-size:1.9rem;margin:52px 0 14px;padding-top:14px;border-top:1px solid var(--line-2)}
@@ -56,11 +56,11 @@
   p{margin:10px 0}
   strong{color:#eef4e2}
   em{color:var(--lime-2);font-style:normal}
-  .m,code.i{font-family:var(--mono);font-size:.86em;background:rgba(195,245,60,.09);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px;color:var(--lime-2);white-space:nowrap}
+  .m,code.i{font-family:var(--mono);font-size:.86em;background:rgba(220,233,5,.09);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px;color:var(--lime-2);white-space:nowrap}
 
   /* ── code blocks ── */
   .code{position:relative;margin:16px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--code-bg)}
-  .code .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(195,245,60,.05);border-bottom:1px solid var(--line-2)}
+  .code .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(220,233,5,.05);border-bottom:1px solid var(--line-2)}
   .code .hd .lang{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
   .code .cp{font-family:var(--mono);font-size:.72rem;color:var(--lime-2);cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:none;transition:.15s}
   .code .cp:hover{background:var(--lime);color:#0a0e05}
@@ -73,12 +73,12 @@
   .tw{overflow-x:auto;margin:16px 0;border:1px solid var(--line-2);border-radius:12px}
   table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:520px}
   th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line-2);vertical-align:top}
-  th{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime-deep);background:rgba(195,245,60,.04)}
+  th{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime-deep);background:rgba(220,233,5,.04)}
   tr:last-child td{border-bottom:none}
   td .m{white-space:normal}
   .addr{font-family:var(--mono);font-size:.8rem;color:var(--lime-2);word-break:break-all}
 
-  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(195,245,60,.05);padding:13px 16px;margin:18px 0;font-size:.92rem}
+  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(220,233,5,.05);padding:13px 16px;margin:18px 0;font-size:.92rem}
   .note .lbl{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime);display:block;margin-bottom:4px}
   .note.warn{border-left-color:#e4c869;background:rgba(228,200,105,.06)}
   .note.warn .lbl{color:#e4c869}
@@ -92,7 +92,7 @@
     aside.open{transform:none}
     main{padding:20px 20px 90px}
     h1.title{font-size:2.6rem}
-    .menu-btn{display:inline-flex;position:fixed;top:14px;right:14px;z-index:60;background:var(--lime);color:#0a0e05;border:none;border-radius:10px;padding:9px 13px;font-weight:800;cursor:pointer;box-shadow:0 0 18px rgba(195,245,60,.5)}
+    .menu-btn{display:inline-flex;position:fixed;top:14px;right:14px;z-index:60;background:var(--lime);color:#0a0e05;border:none;border-radius:10px;padding:9px 13px;font-weight:800;cursor:pointer;box-shadow:0 0 18px rgba(220,233,5,.5)}
   }
 </style>
 </head>
@@ -103,7 +103,7 @@
 <!-- ───────────── SIDEBAR ───────────── -->
 <aside id="side">
   <a class="brand" href="index.html">
-    <svg viewBox="0 0 100 100" fill="currentColor"><path d="M20 8h34c17 0 28 10 28 25 0 12-7 20-18 23l20 28H70L52 58H38v26H20V8zm18 15v22h15c8 0 13-4 13-11s-5-11-13-11H38z"/><path d="M78 52l10 14H68z"/></svg>
+    <img src="assets/logo-mark.png" alt="Robin Labs" style="width:34px;height:34px;object-fit:contain" />
     <span class="wm">ROBIN<small>LABS · DOCS</small></span>
   </a>
   <nav id="nav">
