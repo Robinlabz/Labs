@@ -1,4 +1,4 @@
-# $ROBIN Launchpad (Robinhood Chain)
+# Robin Labs Launchpad (Robinhood Chain)
 
 A fair-launch **launchpad-for-many** on **Robinhood Chain** (Arbitrum Orbit L2, chainId 4663). Any team
 launches a token that is **tradeable on Uniswap v3 + DexScreener-indexed day one**, with a rule-bound
