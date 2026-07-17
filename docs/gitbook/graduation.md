@@ -1,0 +1,26 @@
+# Graduation — "Let It Ride"
+
+Graduation is a **window**, not a line. It becomes eligible at the minimum (~$30k mcap) and can fire anywhere up to the ceiling (~$76k). The longer a coin rides, the bigger the raise and the thicker the floor.
+
+| Parameter | Meaning | Set by |
+|-----------|---------|--------|
+| `minGradTick` | Earliest graduation is allowed (~$30k) | Fixed at launch |
+| `gradTarget` | Auto-graduate price. Defaults 40% up the range (~$45k) | Creator (`setGradTarget`) |
+| `gradTick` | Ceiling (~$76k). Buys can't push past it | Fixed at launch |
+| Timeout | After 7 days, anyone may graduate at the minimum | Permissionless fallback |
+
+On graduation the curve collects the raised WETH + unsold tokens, pays the **creator 25% of the raise**, and posts the rest as the Bond: the Sherwood full-range LP, the Bounty WETH floor, and the Ambush token wall.
+
+## The Bond — three positions
+
+| Position | What it is |
+|----------|-----------|
+| **Sherwood** | A full-range Uniswap v3 LP, locked forever. Its trading fees compound back into itself via `poke()`. |
+| **Bounty** | A concentrated WETH buy-wall *below* spot — a floor that bids on every dip. Funded by the raise, deeper with volume. |
+| **Ambush** | The 25% token reserve + unsold curve tokens, posted as a sell-wall *above* spot. |
+
+> **Why the window matters.** A sniper can't graduate a coin early to lock a thin floor against the dev's wishes — `graduate()` stays locked until the dev's target (or the 7-day fallback). The floor can be *delayed, never denied*.
+
+## Anti-rug by construction
+
+Graduation refuses to post above the ceiling — the only unbacked price zone. Anywhere inside the curve, moving price up costs real WETH that *joins* the raise, so a manipulated graduation price is one the attacker paid for, and the floor always sits below it.

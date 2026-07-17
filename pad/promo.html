@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Robin Labs — The Journey. The Future.</title>
+<meta name="description" content="Launch on Robinhood Chain. One-transaction launch, live from block one, graduate into a floor that can't be rugged and buys every dip. Every great coin starts here." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#060803; --bg-2:#0a0e05; --ink:#f4f7ee; --dim:#93a382;
+    --lime:#c3f53c; --lime-2:#a6e017; --lime-deep:#7fae00;
+    --glow:0 0 22px rgba(195,245,60,.55);
+    --line:rgba(195,245,60,.28); --line-2:rgba(195,245,60,.14);
+    --disp:"Bebas Neue",Oswald,Impact,sans-serif;
+    --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;
+    background-image:radial-gradient(circle at 50% -10%,rgba(195,245,60,.10),transparent 45%),
+      linear-gradient(rgba(195,245,60,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(195,245,60,.035) 1px,transparent 1px);
+    background-size:auto,42px 42px,42px 42px;background-position:0 0}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+  h1,h2,h3,.disp{font-family:var(--disp);font-weight:400;text-transform:uppercase;letter-spacing:.01em;margin:0;line-height:.92}
+  .lime{color:var(--lime)}
+  a{color:inherit;text-decoration:none}
+  .btn{display:inline-flex;align-items:center;gap:.5em;font-weight:800;font-size:.98rem;border-radius:12px;padding:15px 26px;cursor:pointer;border:1px solid transparent;transition:.16s;font-family:var(--sans)}
+  .btn-lime{background:var(--lime);color:#0a0e05;box-shadow:var(--glow)}
+  .btn-lime:hover{transform:translateY(-2px);box-shadow:0 0 34px rgba(195,245,60,.8)}
+  .btn-ghost{border-color:var(--line);color:var(--ink)}
+  .btn-ghost:hover{background:rgba(195,245,60,.08);border-color:var(--lime)}
+
+  /* ── brand mark ── */
+  .mark{display:inline-flex;align-items:center;gap:14px}
+  .mark svg{width:46px;height:46px;filter:drop-shadow(var(--glow))}
+  .mark .wm{font-family:var(--disp);font-size:2rem;letter-spacing:.22em;padding-left:.1em}
+  .mark .wm small{display:block;font-size:.5em;letter-spacing:.5em;color:var(--lime);margin-top:-4px}
+
+  header.nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);background:rgba(6,8,3,.7);border-bottom:1px solid var(--line-2)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;max-width:1040px;margin:0 auto}
+  .nav .mark svg{width:32px;height:32px} .nav .mark .wm{font-size:1.3rem}
+
+  /* ── hero ── */
+  .hero{text-align:center;padding:64px 0 30px}
+  .hero .eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.34em;color:var(--lime);text-transform:uppercase;margin-bottom:20px}
+  .hero h1{font-size:clamp(3.4rem,12vw,7.2rem);text-shadow:0 4px 40px rgba(0,0,0,.6)}
+  .hero h1 .w{color:var(--ink)} .hero h1 .g{color:var(--lime);text-shadow:0 0 40px rgba(195,245,60,.45)}
+  .hero .tag{font-family:var(--disp);font-size:clamp(1rem,2.6vw,1.5rem);letter-spacing:.14em;margin-top:14px;color:var(--dim)}
+  .hero .tag b{color:var(--lime)}
+  .hero .sub{max-width:56ch;margin:22px auto 0;color:#cfd6c4;font-size:1.12rem;line-height:1.55}
+  .hero .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:8px 0 0}
+
+  /* ── journey ── */
+  .journey{padding:40px 0 20px}
+  .jrow{display:grid;grid-template-columns:52px 1fr 1fr;gap:20px;align-items:center;padding:14px 0;position:relative;
+    opacity:0;transform:translateY(24px);transition:opacity .6s,transform .6s}
+  .jrow.in{opacity:1;transform:none}
+  .jnum{font-family:var(--disp);font-size:1.9rem;color:var(--lime);width:52px;height:52px;border:2px solid var(--line);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex:none;background:var(--bg-2);position:relative;z-index:2}
+  .jrow.hot .jnum{border-color:var(--lime);box-shadow:var(--glow)}
+  /* connector line */
+  .journey .track{position:absolute;left:47px;top:70px;bottom:70px;width:2px;background:linear-gradient(var(--lime-deep),var(--line-2));z-index:0}
+  .jcard{border:1.5px solid var(--line);border-radius:16px;background:linear-gradient(180deg,rgba(195,245,60,.05),transparent);padding:16px 18px;display:flex;gap:14px;align-items:center}
+  .jrow.hot .jcard{border-color:var(--lime);box-shadow:0 0 30px rgba(195,245,60,.14) inset,0 0 22px rgba(195,245,60,.15)}
+  .jcard .ic{width:48px;height:48px;flex:none;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--lime)}
+  .jrow.hot .jcard .ic{border-color:var(--lime);box-shadow:var(--glow)}
+  .jcard .ic svg{width:24px;height:24px}
+  .jcard h3{font-size:1.55rem} .jcard h3 em{font-style:normal;color:var(--lime)}
+  .jcard p{margin:3px 0 0;color:var(--dim);font-size:.9rem;line-height:1.35}
+  .jfeat{display:flex;gap:12px;align-items:flex-start;padding-left:6px}
+  .jfeat .fi{color:var(--lime);flex:none;margin-top:2px}.jfeat .fi svg{width:22px;height:22px}
+  .jfeat .ft{font-family:var(--disp);font-size:1.2rem;letter-spacing:.03em;color:var(--lime)}
+  .jfeat .fd{color:#cfd6c4;font-size:.86rem;line-height:1.35;margin-top:2px}
+  .jarrow{grid-column:2;justify-self:center;color:var(--lime-deep);margin:-6px 0}
+  @media(max-width:760px){
+    .jrow{grid-template-columns:44px 1fr;gap:14px}
+    .journey .track{left:43px}
+    .jfeat{grid-column:1/-1;padding-left:58px;margin-top:-4px}
+    .jarrow{grid-column:1/-1;justify-self:start;margin-left:14px}
+    .jnum{width:44px;height:44px;font-size:1.5rem}
+  }
+
+  /* ── closer ── */
+  .closer{margin:36px 0 20px;border:2px solid var(--lime);border-radius:20px;padding:34px 30px;text-align:center;
+    background:radial-gradient(circle at 50% 120%,rgba(195,245,60,.18),transparent 60%);box-shadow:0 0 40px rgba(195,245,60,.12)}
+  .closer .mark{justify-content:center;margin-bottom:12px}
+  .closer h2{font-size:clamp(1.8rem,5vw,3.2rem)}
+  .closer h2 .g{color:var(--lime)}
+  .closer .cta{margin-top:22px}
+  footer{border-top:1px solid var(--line-2);margin-top:20px;padding:22px 0 40px}
+  .foot-in{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-family:var(--mono);font-size:.8rem;color:var(--dim)}
+  .foot-in .mid{letter-spacing:.16em;text-transform:uppercase;color:var(--ink)}
+  .foot-in .mid b{color:var(--lime)}
+</style>
+</head>
+<body>
+
+<!-- reusable R logomark: a bold R whose leg kicks up into an arrow (launch / growth) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="R" viewBox="0 0 100 100">
+    <path fill="currentColor" d="M20 8h34c17 0 28 10 28 25 0 12-7 20-18 23l20 28H70L52 58H38v26H20V8zm18 15v22h15c8 0 13-4 13-11s-5-11-13-11H38z"/>
+    <path fill="currentColor" d="M60 60l26 0-13-16z" opacity=".0"/>
+    <path fill="currentColor" d="M78 52l10 14H68z"/>
+  </symbol>
+</defs></svg>
+
+<header class="nav"><div class="nav-in">
+  <a class="mark" href="index.html"><svg style="color:var(--lime)"><use href="#R"/></svg><span class="wm">ROBIN<small>LABS</small></span></a>
+  <a class="btn btn-lime" href="create.html">Start a coin →</a>
+</div></header>
+
+<main class="wrap">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="eyebrow">Launch on Robinhood Chain</div>
+    <h1><span class="w">The Journey.</span><br /><span class="g">The Future.</span></h1>
+    <div class="tag">One platform. Every step. <b>Real results.</b></div>
+    <p class="sub">Deploy in one transaction. Trade from block one. Graduate into a floor that <b style="color:var(--ink)">can't be rugged</b> and <b style="color:var(--ink)">buys every dip</b> — funded by the launch, deeper with every trade. Every great coin starts here.</p>
+    <div class="cta">
+      <a class="btn btn-lime" href="create.html">🚀 Launch your coin</a>
+      <a class="btn btn-ghost" href="index.html">Browse live coins</a>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- JOURNEY -->
+  <section class="journey" id="journey">
+    <div class="track"></div>
+
+    <div class="jrow">
+      <div class="jnum">1</div>
+      <div class="jcard">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 15c-1 4 0 4 0 4s4 1 4 0M12 4c4 4 6 9 5 13l-6-1-1-6c4-1 6-5 6-6zM9 15l0 0"/><circle cx="14" cy="9" r="1.4" fill="currentColor" stroke="none"/></svg></span>
+        <div><h3>Create Token</h3><p>Deploy your coin in one transaction. Free — just pay gas.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><div><div class="ft">One-Tx Launch</div><div class="fd">Simple. Fast. Unstoppable.</div></div></div>
+    </div>
+    <div class="jarrow">↓</div>
+
+    <div class="jrow">
+      <div class="jnum">2</div>
+      <div class="jcard">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21c4-4 6-9 5-14-5-1-9 1-13 5 3 0 5 1 5 1s1 2 1 5l2 3zM7 15l-3 3M9 17l-2 2"/></svg></span>
+        <div><h3>Launch</h3><p>A real Uniswap v3 pool — live the second you go.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 8 6 11 6 15a6 6 0 0 0 12 0c0-4-2-7-6-13z"/></svg></span><div><div class="ft">Fair &amp; On-Chain</div><div class="fd">Verifiable. No presale, no games.</div></div></div>
+    </div>
+    <div class="jarrow">↓</div>
+
+    <div class="jrow">
+      <div class="jnum">3</div>
+      <div class="jcard">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="10" width="3" height="10"/><rect x="10.5" y="5" width="3" height="15"/><rect x="17" y="13" width="3" height="7"/></svg></span>
+        <div><h3>Trade</h3><p>Chartable and tradeable from the very first block.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17l5-6 4 4 6-8 3 3v6H3z" opacity=".5"/><path d="M3 17l5-6 4 4 6-8" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><div><div class="ft">Live From Block One</div><div class="fd">DexScreener indexed instantly.</div></div></div>
+    </div>
+    <div class="jarrow">↓</div>
+
+    <div class="jrow">
+      <div class="jnum">4</div>
+      <div class="jcard">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l6-7 4 4 6-8M20 5v5h-5"/></svg></span>
+        <div><h3>Graduate</h3><p>Hit your target and lock the win in — forever.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 5v6c0 5 3 9 8 11 5-2 8-6 8-11V5z"/></svg></span><div><div class="ft">Anti-Rug By Design</div><div class="fd">No proxies. No backdoors. Ever.</div></div></div>
+    </div>
+    <div class="jarrow">↓</div>
+
+    <div class="jrow">
+      <div class="jnum">5</div>
+      <div class="jcard">
+        <span class="ic"><svg style="color:var(--lime)"><use href="#R"/></svg></span>
+        <div><h3>The Bond</h3><p>Liquidity locked <em>forever</em> — and a floor that <em>buys every dip</em>, funded by the launch and deeper with every trade.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 10V8a6 6 0 0 1 12 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h8V8a4 4 0 0 0-8 0z"/></svg></span><div><div class="ft">Permanent Floor</div><div class="fd">It can only get stronger.</div></div></div>
+    </div>
+    <div class="jarrow">↓</div>
+
+    <div class="jrow">
+      <div class="jnum">6</div>
+      <div class="jcard">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="13" width="3" height="7"/><rect x="10.5" y="9" width="3" height="11"/><rect x="17" y="4" width="3" height="16"/></svg></span>
+        <div><h3>Grow</h3><p>You earn <em>real ETH</em> as your coin runs — plus a graduation payday.</p></div>
+      </div>
+      <div class="jfeat"><span class="fi"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6zM18 6l1 2 2 .3-1.5 1.5.4 2.2-1.9-1-1.9 1 .4-2.2L15 8.3 17 8z"/></svg></span><div><div class="ft">Creator Rewards</div><div class="fd">Real ETH, every step of the way.</div></div></div>
+    </div>
+  </section>
+
+  <!-- CLOSER -->
+  <section class="closer">
+    <div class="mark"><svg style="color:var(--lime)"><use href="#R"/></svg><span class="wm">ROBIN<small>LABS</small></span></div>
+    <h2>Every great project starts here.<br /><span class="g">Built on Robinhood.</span></h2>
+    <div class="cta"><a class="btn btn-lime" href="create.html">Start your coin now →</a></div>
+  </section>
+</main>
+
+<footer><div class="wrap foot-in">
+  <span>🌐 robinlabs.io</span>
+  <span class="mid">Build. Launch. <b>Graduate.</b> Grow.</span>
+  <span>𝕏 @robinlabshb</span>
+</div></footer>
+
+<script>
+  // scroll-reveal the journey; light up the step nearest the viewport centre
+  const rows = [...document.querySelectorAll('.jrow')];
+  const io = new IntersectionObserver((es) => {
+    es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.25 });
+  rows.forEach(r => io.observe(r));
+  const spot = () => {
+    const mid = innerHeight * 0.5; let best = null, bd = 1e9;
+    rows.forEach(r => { const b = r.getBoundingClientRect(); const d = Math.abs((b.top + b.bottom) / 2 - mid); if (d < bd) { bd = d; best = r; } });
+    rows.forEach(r => r.classList.toggle('hot', r === best && bd < innerHeight * 0.4));
+  };
+  addEventListener('scroll', spot, { passive: true }); addEventListener('resize', spot); spot();
+</script>
+</body>
+</html>

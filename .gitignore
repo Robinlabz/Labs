@@ -1,0 +1,23 @@
+# local secrets — never commit
+.env
+.env.local
+**/.env
+**/.env.local
+
+# private — internal audit, not for the public repo
+AUDIT.md
+**/AUDIT.md
+
+# deps + build artifacts
+node_modules/
+**/node_modules/
+launchpad/artifacts/
+launchpad/cache/
+launchpad/typechain-types/
+
+# indexer runtime data
+indexer/data/
+*.db
+*.db-shm
+*.db-wal
+*.log

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Robin Labs — Platform Admin</title>
+<style>
+  :root{--bg:#060803;--panel:#0c1107;--ink:#f4f7ee;--dim:#93a382;--lime:#c3f53c;--line:rgba(195,245,60,.22);
+    --ok:#7fdc4f;--bad:#e46a6a;--warn:#e4c869;--mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;
+    background-image:radial-gradient(circle at 100% -10%,rgba(195,245,60,.07),transparent 40%);min-height:100vh}
+  .wrap{max-width:720px;margin:0 auto;padding:34px 20px 80px}
+  h1{font-family:var(--sans);font-weight:800;font-size:1.6rem;letter-spacing:-.01em;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:.95rem;margin-bottom:22px}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+  button{font-family:var(--sans);font-weight:700;border-radius:10px;padding:11px 18px;cursor:pointer;border:1px solid transparent;font-size:.92rem;transition:.15s}
+  .lime{background:var(--lime);color:#0a0e05}.lime:hover{filter:brightness(1.08)}
+  .lime:disabled{opacity:.4;cursor:not-allowed;filter:none}
+  .ghost{background:none;border-color:var(--line);color:var(--ink)}.ghost:hover{background:rgba(195,245,60,.08)}
+  .who{font-family:var(--mono);font-size:.8rem;color:var(--dim)}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px;margin:14px 0}
+  .card h2{font-size:1.1rem;margin:0 0 2px}
+  .addr{font-family:var(--mono);font-size:.76rem;color:var(--lime);word-break:break-all;margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.78rem;padding:4px 0;border-bottom:1px solid rgba(195,245,60,.08)}
+  .row .k{color:var(--dim)}.row .v{text-align:right;word-break:break-all}
+  .status{margin:12px 0;font-size:.86rem;font-weight:600}
+  .status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.status.warn{color:var(--warn)}.status.dim{color:var(--dim)}
+  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(195,245,60,.05);padding:12px 15px;font-size:.85rem;margin:18px 0}
+  a{color:var(--lime)}
+  code{font-family:var(--mono);background:rgba(195,245,60,.09);border-radius:4px;padding:1px 5px;font-size:.85em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛡️ Platform Admin</h1>
+  <div class="sub">Complete the ownership handover. Connect the <strong>platform wallet</strong> and accept ownership on both contracts. Nothing else here can touch a live coin or the Bond.</div>
+
+  <div class="bar">
+    <button class="lime" id="connect">Connect wallet</button>
+    <span class="who" id="who">Not connected</span>
+  </div>
+
+  <div id="cards"></div>
+
+  <div class="note">
+    This page only calls <code>acceptOwnership()</code> — the final step of the two-step transfer already in progress on-chain. It never sees a private key (your wallet signs), and it's safe to delete after you're done. Owner is <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">verifiable on the explorer</a>.
+  </div>
+</div>
+
+<script type="module">
+import { ethers } from "./assets/ethers.min.js";
+import { CHAIN, CONTRACTS } from "./assets/config.js";
+
+const RPC = new ethers.JsonRpcProvider(CHAIN.rpc[0], CHAIN.id);
+const OWNABLE = [
+  "function owner() view returns (address)",
+  "function pendingOwner() view returns (address)",
+  "function acceptOwnership()",
+];
+const TARGETS = [
+  { key: "CurvePadFactory", addr: CONTRACTS.padFactory },
+  { key: "PadRouter",       addr: CONTRACTS.padRouter },
+];
+
+let account = null;
+const eq = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
+const cardsEl = document.getElementById("cards");
+const whoEl = document.getElementById("who");
+
+function provider() {
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+}
+
+async function refresh() {
+  cardsEl.innerHTML = "";
+  for (const t of TARGETS) {
+    const c = new ethers.Contract(t.addr, OWNABLE, RPC);
+    let owner = "?", pending = "?";
+    try { [owner, pending] = await Promise.all([c.owner(), c.pendingOwner()]); } catch {}
+    t.owner = owner; t.pending = pending;
+
+    const done = eq(owner, t.pending) || pending === ethers.ZeroAddress;
+    const iAmPending = account && eq(account, pending);
+    let status, cls, btn;
+    if (owner && account && eq(owner, account)) { status = "✓ You already own this contract."; cls = "ok"; btn = ""; }
+    else if (pending === ethers.ZeroAddress) { status = "No transfer pending — ownership is settled."; cls = "dim"; btn = ""; }
+    else if (iAmPending) { status = "You are the pending owner — click to accept."; cls = "warn"; btn = `<button class="lime" data-addr="${t.addr}" data-key="${t.key}">Accept ownership →</button>`; }
+    else if (account) { status = `Connect the pending-owner wallet (${short(pending)}) to accept.`; cls = "bad"; btn = ""; }
+    else { status = "Connect the platform wallet to accept."; cls = "dim"; btn = ""; }
+
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <h2>${t.key}</h2>
+      <div class="addr">${t.addr}</div>
+      <div class="row"><span class="k">current owner</span><span class="v">${short(owner)}</span></div>
+      <div class="row"><span class="k">pending owner</span><span class="v">${short(pending)}</span></div>
+      <div class="status ${cls}">${status}</div>
+      ${btn}`;
+    cardsEl.appendChild(div);
+  }
+  cardsEl.querySelectorAll("button[data-addr]").forEach((b) =>
+    b.addEventListener("click", () => accept(b.dataset.addr, b.dataset.key, b)));
+}
+
+async function connect() {
+  const inj = provider();
+  if (!inj) { alert("No EVM wallet found. Install Phantom or MetaMask."); return; }
+  try {
+    const [acc] = await inj.request({ method: "eth_requestAccounts" });
+    account = acc;
+    // make sure we're on Robinhood Chain
+    try {
+      await inj.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN.hexId }] });
+    } catch (e) {
+      if (e.code === 4902) await inj.request({ method: "wallet_addEthereumChain", params: [{
+        chainId: CHAIN.hexId, chainName: CHAIN.name, nativeCurrency: CHAIN.currency,
+        rpcUrls: CHAIN.rpc, blockExplorerUrls: [CHAIN.explorer] }] });
+    }
+    whoEl.textContent = "Connected: " + short(account);
+    await refresh();
+  } catch (e) { alert(e.message || "Connection failed"); }
+}
+
+async function accept(addr, key, btn) {
+  const inj = provider();
+  btn.disabled = true; btn.textContent = "Confirm in wallet…";
+  try {
+    const signer = await new ethers.BrowserProvider(inj).getSigner();
+    const c = new ethers.Contract(addr, OWNABLE, signer);
+    const tx = await c.acceptOwnership();
+    btn.textContent = "Accepting… (waiting)";
+    await tx.wait();
+    btn.textContent = "✓ Accepted";
+    await refresh();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Accept ownership →";
+    alert(e.shortMessage || e.message || "Transaction failed");
+  }
+}
+
+document.getElementById("connect").addEventListener("click", connect);
+refresh(); // show read-only state immediately
+</script>
+</body>
+</html>

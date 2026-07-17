@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coin — Robin Labs Pad</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#0d0f07;--bg-2:#12150a;--bg-3:#1a1e10;--panel:#15180d;--line:rgba(204,255,0,.14);--line-2:rgba(255,255,255,.08);
+  --line-strong:rgba(204,255,0,.34);--ink:#f6f7f1;--ink-dim:#a7ad97;--ink-faint:#7f8570;--lime:#ccff00;--lime-soft:#e4ff7a;--lime-deep:#a8d600;--green:#48d16a;--red:#ff5a52;--gold:#f5c542;
+  --disp:"Bebas Neue",Impact,sans-serif;--sans:"Plus Jakarta Sans",system-ui,sans-serif;--mono:ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}svg,img,iframe{display:block}
+h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.5px;text-transform:uppercase;margin:0;line-height:.95}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+.top{position:sticky;top:0;z-index:40;background:rgba(13,15,7,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:16px;padding:12px 20px;max-width:1280px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-size:1.5rem;letter-spacing:1px}.brand .tag{color:var(--lime)}
+.spacer{flex:1}.nlink{color:var(--ink-dim);font-size:.9rem;padding:8px 6px}.nlink:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font-weight:700;font-size:.92rem;border-radius:10px;padding:11px 18px;cursor:pointer;border:1px solid transparent}
+.btn-lime{background:var(--lime);color:#10140a}.btn-lime[disabled]{opacity:.6;cursor:not-allowed}
+.btn-ghost{border-color:var(--line-strong);color:var(--ink);background:none}
+.btn-gold{background:var(--gold);color:#10140a}
+.banner{height:180px;border-radius:0 0 16px 16px;background:linear-gradient(120deg,#1a1e10,#0d0f07);position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.banner .art{position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(204,255,0,.22),transparent 60%),radial-gradient(circle at 80% 60%,rgba(138,99,224,.18),transparent 55%)}
+.idbar{display:flex;gap:16px;align-items:flex-end;margin-top:-46px;position:relative;z-index:2}
+.idbar .pfp{width:92px;height:92px;border-radius:18px;border:3px solid var(--bg);flex:none;display:grid;place-items:center;font-size:2rem;font-weight:800;color:#10140a;background:linear-gradient(135deg,#ccff00,#8a63e0)}
+.idbar .who{padding-bottom:6px;flex:1;min-width:0}
+.idbar h1{font-size:2rem;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.idbar h1 .tk{color:var(--lime);font-size:1.2rem}
+.idbar .ca{display:inline-flex;align-items:center;gap:8px;margin-top:4px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:8px;padding:5px 8px;font-family:var(--mono);font-size:.74rem;color:var(--ink-dim)}
+.idbar .ca button{background:var(--lime);color:#10140a;border:none;border-radius:6px;padding:2px 7px;font-weight:700;cursor:pointer;font-size:.7rem}
+.layout{display:grid;grid-template-columns:1fr 340px;gap:20px;margin:20px 0 70px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line-2);border-radius:14px;background:var(--panel)}
+.chart{border:1px solid var(--line-2);border-radius:14px;overflow:hidden;background:var(--bg-2)}
+.chart .hd{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-2);font-size:.82rem;color:var(--ink-dim)}
+.chart .hd .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.chart iframe{width:100%;height:440px;border:0;background:var(--bg-2)}
+.chart .ph{height:440px;display:grid;place-items:center;text-align:center;color:var(--ink-faint);padding:20px}
+.chart .ph .big{font-family:var(--disp);font-size:2rem;color:var(--ink-dim)}
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-2);border-radius:12px;overflow:hidden;margin-top:16px;border:1px solid var(--line-2)}
+.statrow .s{background:var(--panel);padding:13px 14px}
+.statrow .k{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint)}
+.statrow .v{font-family:var(--disp);font-size:1.4rem;margin-top:3px}
+.statrow .v.g{color:var(--green)}
+.sec{margin-top:16px;padding:16px}
+.sec h3{font-size:1.15rem;margin-bottom:8px}
+.sec p{color:var(--ink-dim);font-size:.9rem;margin:0}
+.holders .h{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line-2);font-size:.85rem}
+.holders .h:last-child{border-bottom:none}.holders .mono{color:var(--ink-dim)}
+.buybox{padding:16px}
+.toggle{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-2);border-radius:11px;padding:5px;margin-bottom:14px}
+.toggle button{border:none;background:none;color:var(--ink-dim);font-weight:700;padding:9px;border-radius:8px;cursor:pointer;font-family:var(--sans)}
+.toggle button.on{background:var(--lime);color:#10140a}
+.toggle button.on.sell{background:var(--red);color:#fff}
+.amt{background:var(--bg-2);border:1px solid var(--line-2);border-radius:11px;padding:12px;display:flex;align-items:center;gap:10px}
+.amt input{flex:1;background:none;border:none;color:var(--ink);font-size:1.4rem;font-family:var(--disp);letter-spacing:.5px;outline:none}
+.amt .cur{color:var(--ink-dim);font-weight:700}
+.quick{display:flex;gap:6px;margin:10px 0 14px}
+.quick button{flex:1;background:var(--bg-2);border:1px solid var(--line-2);color:var(--ink-dim);border-radius:8px;padding:7px;font-size:.78rem;cursor:pointer;font-weight:600}
+.quick button:hover{border-color:var(--line-strong);color:var(--ink)}
+.bond{padding:16px;border-top:1px solid var(--line-2)}
+.bond .lbl{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;color:var(--lime);text-transform:uppercase}
+.bond h3{font-size:1.3rem;margin:4px 0 2px}
+.bond .sub{color:var(--ink-dim);font-size:.82rem}
+.bar{height:9px;border-radius:6px;background:var(--bg-3);overflow:hidden;margin:12px 0 6px;position:relative}
+.bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--lime-deep),var(--lime))}
+.bar .mark{position:absolute;top:-3px;width:2px;height:15px;background:var(--gold)}
+.bar-lab{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink-dim)}.bar-lab b{color:var(--lime)}
+.floorpill{margin-top:12px;background:rgba(204,255,0,.1);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;font-size:.82rem}
+.floorpill b{color:var(--lime)}
+.devpanel{padding:16px;border-top:1px solid var(--line-2)}
+.devpanel .lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;color:var(--gold);text-transform:uppercase}
+.devpanel h3{font-size:1.15rem;margin:4px 0 8px}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0}
+.seg button{background:var(--bg-2);border:1px solid var(--line-2);color:var(--ink-dim);border-radius:8px;padding:8px 4px;font-size:.76rem;font-weight:700;cursor:pointer}
+.seg button.on{background:var(--gold);color:#10140a;border-color:var(--gold)}
+.devrow{display:flex;gap:8px;margin-top:10px}
+.devrow .btn{flex:1;padding:9px}
+.tiny{font-size:.72rem;color:var(--ink-faint);margin-top:8px}
+.foot{border-top:1px solid var(--line);padding:20px 0 40px;color:var(--ink-faint);font-size:.76rem;text-align:center}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="brand" href="index.html"><img src="assets/logo-mark.png" alt="" style="height:30px;width:auto" onerror="this.style.display='none'" /><span>ROBIN <span class="tag">LABS</span></span></a>
+  <div class="spacer"></div><a class="nlink" href="index.html">← All coins</a><button class="btn btn-ghost" id="connectBtn" type="button">Connect wallet</button>
+</div></header>
+
+<div class="banner"><div class="art"></div></div>
+<main class="wrap">
+  <div class="idbar">
+    <div class="pfp" id="pfp">?</div>
+    <div class="who">
+      <h1><span id="nm">Loading…</span> <span class="tk" id="tk"></span></h1>
+      <span class="ca"><span id="ca" class="mono">—</span> <button id="copyCa" type="button">Copy</button></span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="chart">
+        <div class="hd"><span class="dot"></span> DexScreener · live chart <span style="margin-left:auto" class="mono">Uniswap v3 · 1%</span></div>
+        <iframe id="dex" title="DexScreener chart" loading="lazy" src="about:blank"></iframe>
+        <div class="ph" id="chartPh" style="display:none"><div><div class="big">📈 DexScreener chart</div><div>Loads here from block one — the coin is a real Uniswap v3 pair.</div></div></div>
+      </div>
+      <div class="statrow">
+        <div class="s"><div class="k">Market cap</div><div class="v" id="stMc">—</div></div>
+        <div class="s"><div class="k">Price</div><div class="v" id="stPx">—</div></div>
+        <div class="s"><div class="k">Stage</div><div class="v" id="stStage">—</div></div>
+        <div class="s"><div class="k">Supply</div><div class="v">1B</div></div>
+      </div>
+      <div class="panel sec"><h3>How this coin works</h3><p>Launched on Robin Labs — a real Uniswap v3 pair from block one. It walks up a bonding curve and, once it reaches the graduation window, posts <b style="color:var(--ink)">the Bond</b>: a protocol-owned floor it can’t be rugged below. Clean token, no transfer tax, LP locked forever.</p></div>
+      <div class="panel sec holders"><h3>Protocol holdings</h3>
+        <div class="h"><span class="mono">🌲 Sherwood — locked LP</span><b>after graduation</b></div>
+        <div class="h"><span class="mono">🎯 Bounty — WETH floor</span><b>after graduation</b></div>
+        <div class="h"><span class="mono">🏹 Ambush — reserve</span><b>25%</b></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="buybox">
+          <div class="toggle"><button class="on" id="tBuy" type="button">Buy</button><button id="tSell" type="button">Sell</button></div>
+          <div class="amt"><input id="amtInput" placeholder="0.0" value="0.1" inputmode="decimal" /><span class="cur" id="cur">ETH</span></div>
+          <div class="quick" id="quick"><button type="button" data-q="0.05">0.05</button><button type="button" data-q="0.1">0.1</button><button type="button" data-q="0.5">0.5</button><button type="button" data-q="1">1 ETH</button></div>
+          <button class="btn btn-lime" style="width:100%" id="trade" type="button">Buy</button>
+          <p id="tradeNote" style="color:var(--ink-faint);font-size:.75rem;margin:10px 0 0;text-align:center">Buys send native ETH — no token approval. Simulated and balance-checked before you sign.</p>
+        </div>
+
+        <!-- Bond / graduation panel (JS fills it) -->
+        <div class="bond" id="bondPanel">
+          <div class="lbl">🪙 The Bond</div>
+          <h3 id="bondTitle">Loading…</h3>
+          <div class="sub" id="bondSub"></div>
+          <div class="bar"><div class="fill" id="bondFill" style="width:0%"></div><div class="mark" id="bondMark" style="left:0%;display:none"></div></div>
+          <div class="bar-lab" id="bondLab"><span>Road to the Bond</span><b>—</b></div>
+          <button class="btn btn-lime" style="width:100%;margin-top:12px;display:none" id="gradBtn" type="button">🎓 Graduate now</button>
+          <div class="floorpill" id="floorPill" style="display:none"></div>
+        </div>
+
+        <!-- Dev-only controls (shown when the connected wallet is the creator) -->
+        <div class="devpanel" id="devPanel" style="display:none">
+          <div class="lbl">👑 Creator controls</div>
+          <h3>Set your graduation target</h3>
+          <div class="sub">The later it graduates, the thicker the floor.</div>
+          <div class="seg" id="targetSeg">
+            <button type="button" data-tg="min">Min · $30k</button>
+            <button type="button" data-tg="mid">Ride · ~$45k</button>
+            <button type="button" data-tg="max">Ceiling · $76k</button>
+          </div>
+          <div class="devrow">
+            <button class="btn btn-ghost" id="collectBtn" type="button">Collect fees</button>
+            <button class="btn btn-gold" id="burnBtn" type="button">Buy &amp; burn</button>
+          </div>
+          <div class="tiny" id="devEsc">Uncollected sell fees: —</div>
+        </div>
+      </div>
+      <div class="panel sec" style="margin-top:16px"><h3>Coin info</h3>
+        <div class="holders">
+          <div class="h"><span>Buy / Sell tax</span><b id="infoTax">—</b></div>
+          <div class="h"><span>Buy tax</span><b>→ platform</b></div>
+          <div class="h"><span>Sell tax</span><b>→ creator</b></div>
+          <div class="h"><span>Chain</span><b>Robinhood</b></div>
+          <div class="h"><span>LP at graduation</span><b>Locked forever</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<div class="foot">Robin Labs Pad on Robinhood Chain — contracts live and audited. Chart via DexScreener. Not financial advice. Not affiliated with Robinhood Markets, Uniswap, or DexScreener.</div>
+
+<script type="module">
+import * as Pad from './assets/wallet.js';
+const $ = (id) => document.getElementById(id);
+const ETH_USD = 1920;
+const q = new URLSearchParams(location.search);
+const TOKEN = (q.get('c') || '').trim();
+const fmt = (n) => n >= 1000 ? "$" + (n/1000).toFixed(n >= 10000 ? 0 : 1) + "k" : "$" + (n >= 1 ? Math.round(n) : n.toPrecision(2));
+const setNote = (m, kind) => { const n = $('tradeNote'); n.textContent = m; n.style.color = kind === 'err' ? 'var(--red)' : kind === 'ok' ? 'var(--green)' : 'var(--ink-faint)'; };
+const refreshConnect = () => { const a = Pad.account(); $('connectBtn').textContent = a ? Pad.short(a) : 'Connect wallet'; };
+
+let SIDE = 'buy', COIN = null;
+
+// ── side toggle ──
+function side(s){
+  SIDE = s;
+  const b = $('tBuy'), se = $('tSell'), tr = $('trade'), c = $('cur');
+  if (s === 'buy'){ b.classList.add('on'); se.classList.remove('on'); c.textContent = 'ETH'; tr.classList.add('btn-lime'); tr.classList.remove('btn-ghost'); tr.textContent = 'Buy $' + (COIN?.symbol || ''); $('amtInput').value = '0.1'; }
+  else { se.classList.add('on'); b.classList.remove('on'); c.textContent = COIN?.symbol || 'tokens'; tr.classList.remove('btn-lime'); tr.classList.add('btn-ghost'); tr.textContent = 'Sell $' + (COIN?.symbol || ''); $('amtInput').value = ''; }
+}
+$('tBuy').addEventListener('click', () => side('buy'));
+$('tSell').addEventListener('click', () => side('sell'));
+$('quick').addEventListener('click', (e) => { const v = e.target.dataset.q; if (v) $('amtInput').value = v; });
+$('copyCa').addEventListener('click', () => { if (TOKEN && navigator.clipboard) navigator.clipboard.writeText(TOKEN); });
+$('connectBtn').addEventListener('click', async () => { try { await Pad.connect(); refreshConnect(); await maybeShowDev(); } catch (e) { setNote(e.message, 'err'); } });
+window.addEventListener('robinpad:ready', refreshConnect);
+refreshConnect();
+
+// ── trade ──
+$('trade').addEventListener('click', async () => {
+  if (!COIN) return;
+  const amount = parseFloat($('amtInput').value) || 0;
+  if (amount <= 0) return setNote('Enter an amount first.', 'err');
+  try {
+    if (!Pad.account()) { await Pad.connect(); refreshConnect(); }
+    if (SIDE === 'buy'){
+      setNote('Buying with ' + amount + ' ETH — confirm in your wallet (no approval)…');
+      const rc = await (await Pad.buy({ token: TOKEN, ethAmount: amount })).wait();
+      setNote('Bought ✓ ' + rc.hash.slice(0, 12) + '…', 'ok');
+    } else {
+      setNote('Selling — one exact-amount approval to the router, then the swap…');
+      const rc = await (await Pad.sell({ token: TOKEN, tokenAmount: amount })).wait();
+      setNote('Sold ✓ ' + rc.hash.slice(0, 12) + '…', 'ok');
+    }
+    setTimeout(loadCoin, 1500);
+  } catch (e) { setNote(e.message, 'err'); }
+});
+
+// ── graduate button ──
+$('gradBtn').addEventListener('click', async () => {
+  if (!COIN) return;
+  try {
+    if (!Pad.account()) { await Pad.connect(); refreshConnect(); }
+    setNote('Graduating — posting the Bond…');
+    const rc = await (await Pad.graduate(COIN.curve)).wait();
+    setNote('Graduated ✓ the Bond is live. ' + rc.hash.slice(0, 12) + '…', 'ok');
+    setTimeout(loadCoin, 1500);
+  } catch (e) { setNote(e.message, 'err'); }
+});
+
+// ── dev controls ──
+$('targetSeg').addEventListener('click', async (e) => {
+  const tg = e.target.dataset.tg; if (!tg || !COIN) return;
+  const tick = tg === 'min' ? COIN.minGradTick : tg === 'max' ? COIN.gradTick
+    : Math.round(COIN.minGradTick + (COIN.gradTick - COIN.minGradTick) * 0.4);
+  try {
+    setNote('Setting graduation target…');
+    await (await Pad.setGradTarget(COIN.curve, tick)).wait();
+    setNote('Target updated ✓', 'ok');
+    setTimeout(loadCoin, 1200);
+  } catch (err) { setNote(err.message, 'err'); }
+});
+$('collectBtn').addEventListener('click', async () => {
+  try { setNote('Collecting your sell fees…'); await (await Pad.withdrawDev(TOKEN)).wait(); setNote('Collected ✓', 'ok'); setTimeout(loadDevEsc, 1200); }
+  catch (e) { setNote(e.message, 'err'); }
+});
+$('burnBtn').addEventListener('click', async () => {
+  try { setNote('Buying + burning with your fees…'); await (await Pad.burnDev(TOKEN)).wait(); setNote('Burned ✓', 'ok'); setTimeout(loadDevEsc, 1200); }
+  catch (e) { setNote(e.message, 'err'); }
+});
+
+async function loadDevEsc(){
+  try { const w = await Pad.devEscrow(TOKEN); $('devEsc').textContent = 'Uncollected sell fees: ' + (+ (Number(w) / 1e18).toFixed(5)) + ' ETH'; } catch {}
+}
+async function maybeShowDev(){
+  const a = Pad.account();
+  if (COIN && a && a.toLowerCase() === COIN.dev.toLowerCase()){ $('devPanel').style.display = 'block'; loadDevEsc(); }
+  else $('devPanel').style.display = 'none';
+}
+
+// ── load the coin ──
+async function loadCoin(){
+  if (!/^0x[0-9a-fA-F]{40}$/.test(TOKEN)){ $('nm').textContent = 'Unknown coin'; setNote('No coin address in the link.', 'err'); return; }
+  let meta, tax, info;
+  try { [meta, tax] = await Promise.all([Pad.tokenMeta(TOKEN), Pad.getTax(TOKEN)]); }
+  catch { $('nm').textContent = 'Coin not found'; return; }
+  if (!tax.set){ $('nm').textContent = meta.name; $('tk').textContent = '$' + meta.symbol; setNote('This coin is not registered on Robin Labs.', 'err'); return; }
+  try { info = await Pad.curveInfo(tax.curve, TOKEN); } catch { info = null; }
+
+  COIN = { token: TOKEN, curve: tax.curve, pool: tax.pool, dev: tax.projectWallet, symbol: meta.symbol, name: meta.name,
+    minGradTick: info?.minGradTick, gradTick: info?.gradTick };
+
+  // header
+  $('nm').textContent = meta.name;
+  $('tk').textContent = '$' + meta.symbol;
+  $('pfp').textContent = (meta.symbol || '?').slice(0, 3);
+  $('ca').textContent = Pad.short(TOKEN);
+  document.title = meta.name + ' — Robin Labs Pad';
+  $('trade').textContent = (SIDE === 'buy' ? 'Buy $' : 'Sell $') + meta.symbol;
+  $('infoTax').textContent = (tax.buyBps / 100) + '% / ' + (tax.sellBps / 100) + '%';
+
+  // chart
+  if (tax.pool){ $('dex').src = 'https://dexscreener.com/robinhood/' + tax.pool.toLowerCase() + '?embed=1&theme=dark&info=0&trades=0'; }
+
+  // stats
+  if (info){
+    const mc = info.mcapEth * ETH_USD;
+    $('stMc').textContent = fmt(mc);
+    $('stPx').textContent = '$' + (info.wethPerToken * ETH_USD).toPrecision(2);
+    $('stStage').textContent = info.graduated ? 'Graduated' : info.ready ? 'Ready' : 'Bonding';
+    $('stStage').className = 'v' + (info.graduated ? ' g' : '');
+  }
+
+  // bond / graduation panel
+  renderBond(info);
+  await maybeShowDev();
+}
+
+function renderBond(info){
+  const t = $('bondTitle'), s = $('bondSub'), fill = $('bondFill'), lab = $('bondLab'), grad = $('gradBtn'), pill = $('floorPill'), mark = $('bondMark');
+  if (!info){ t.textContent = 'Loading…'; return; }
+  if (info.graduated){
+    t.textContent = 'Floor: live';
+    s.textContent = 'Graduated — a protocol-owned floor now stands under this coin.';
+    fill.style.width = '100%'; mark.style.display = 'none';
+    lab.innerHTML = '<b>Bond posted</b><span>can’t rug to zero</span>';
+    grad.style.display = 'none';
+    pill.style.display = 'block';
+    pill.innerHTML = '🌲 <b>Bond posted</b> · Sherwood LP locked (fees compound in forever), Bounty floor below price, Ambush selling only into strength.';
+    return;
+  }
+  const pct = Math.round(info.progress * 100);
+  fill.style.width = pct + '%';
+  mark.style.display = 'block'; mark.style.left = Math.round(info.targetFrac * 100) + '%';
+  s.textContent = 'Bonding up the curve. Graduation posts the Bond floor.';
+  if (info.ready){
+    t.textContent = 'Ready to graduate';
+    lab.innerHTML = '<b>Target reached</b><span>' + pct + '% up the curve</span>';
+    grad.style.display = 'block';
+  } else {
+    t.textContent = pct + '% to the Bond';
+    lab.innerHTML = '<span>Road to the Bond</span><b>' + pct + '%</b>';
+    grad.style.display = 'none';
+  }
+  pill.style.display = 'none';
+}
+
+loadCoin();
+</script>
+</body>
+</html>

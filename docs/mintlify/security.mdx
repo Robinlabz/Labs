@@ -1,0 +1,22 @@
+---
+title: "Security Model"
+description: "Immutability, floor-drain proof, conservation, anti-snipe and wallet safety."
+---
+
+# Security Model
+
+- **No proxies, no upgrades.** The contracts are immutable. The platform owner (Ownable2Step) can only set the fee wallet for *new* launches — never touch a live coin, its curve, or the Bond.
+- **Floor-drain closed.** Graduation refuses to post above the ceiling — the only unbacked price zone. Anywhere inside the curve, moving price up costs real WETH that *joins* the raise, so a manipulated graduation price is one the attacker paid for, and the floor sits below it.
+- **Conservation.** Every wei of WETH and every token is accounted for across the lifecycle — verified to the wei by a 300-run fuzz and a random-graduation battery.
+- **Anti-snipe.** The creator's opening buy runs atomically inside the launch tx; a CREATE2 salt with per-launch entropy blocks pre-init pool DoS.
+- **Fees in-protocol.** The 1% is the Uniswap LP fee tier, not a side transfer — no extra instruction is ever attached to a user's transaction.
+
+## Audit
+
+Three internal audit passes (manual, deep pre-production, and a dedicated adversarial pass) plus a live mainnet lifecycle validation. The core was attacked hard and held: floor-drain proven impossible, conservation exact, floor monotonic, anti-rug intact.
+
+The full lifecycle was validated live on mainnet — launch, anti-snipe, buy, graduate, and the Bond posting all three positions plus paying the creator reward.
+
+## Wallet safety
+
+Buys are 100% approval-free (native ETH in). Sells use the single unavoidable EVM approval — an **exact-amount** approve to the canonical router only, never infinite and never to a personal wallet. Every trade is the standard single-signer swap shape, so a wallet's transaction scanner sees nothing unusual.

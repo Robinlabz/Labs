@@ -1,0 +1,106 @@
+---
+title: "Contracts & ABI"
+description: "Human-readable ABIs for the factory, router, curve and bond, plus the events reference."
+---
+
+# Contracts & ABI
+
+All ABIs below are human-readable (ethers.js parses them directly).
+
+## CurvePadFactory
+
+The launch entrypoint. `launch()` is **payable** — any ETH you send is the creator's own opening buy (capped at 2% of supply), executed atomically before public trading opens.
+
+```solidity
+// The launch params tuple. tax.projectWallet receives the creator's sell fee.
+function launch(
+  (string name, string symbol, address dev,
+   (uint16 buyBps, uint16 sellBps, uint16 walletBps,
+    uint16 floorBps, uint16 burnBps, address projectWallet) tax) p
+) payable returns (address token, address curve, address pool)
+
+function tokenCount() view returns (uint256)
+function allTokens(uint256 index) view returns (address)
+function recordOf(address token) view returns (address token, address curve, address dev, uint256 at)
+
+event Launched(address indexed token, address indexed curve, address indexed pool, address dev, uint256 devBought)
+```
+
+> **Fee caps (enforced on-chain).** Each side (`buyBps`/`sellBps`) is 1%–4% (`100–400` bps). The baseline 1% is mandatory. The opening dev buy is capped at 2% of supply (`200` bps). Total supply is fixed at `1,000,000,000`.
+
+## PadRouter
+
+Every trade goes through the router. Buys send native ETH (no approval); sells need one exact-amount approval to the router. The fee split happens inside — no side transfers.
+
+```solidity
+function buy(address token, uint256 minOut) payable returns (uint256 tokensOut)
+function sell(address token, uint256 amountIn, uint256 minOutEth) returns (uint256 ethOut)
+
+// reads
+function configOf(address token) view returns (
+  (address pool, address curve, address projectWallet,
+   uint16 buyBps, uint16 sellBps, uint16 walletBps,
+   uint16 floorBps, uint16 burnBps, bool set) )
+function devEscrow(address token) view returns (uint256)   // creator's uncollected sell fees (wei)
+function bondOf(address token) view returns (address)
+
+// creator-only fee controls (projectWallet)
+function withdrawDev(address token)   // collect escrowed sell fees to the wallet
+function burnDev(address token)       // buy + burn with them instead
+
+event Bought(address indexed token, address indexed buyer, uint256 ethIn, uint256 fee, uint256 tokensOut)
+event Sold(address indexed token, address indexed seller, uint256 tokensIn, uint256 fee, uint256 ethOut)
+event FeeSplit(address indexed token, uint256 platform, uint256 deferred, uint256 platformCut, uint256 dev, uint256 floor, uint256 burn)
+```
+
+## CurvePool
+
+The bonding curve and graduation. Read it for progress and the graduation window; call `graduate()` (permissionless) to post the Bond, or `setGradTarget()` (creator-only) to move the auto-graduate price.
+
+```solidity
+function pool() view returns (address)     // the Uniswap v3 pool
+function dev() view returns (address)
+function bond() view returns (address)     // zero until graduated
+function seeded() view returns (bool)
+function graduated() view returns (bool)
+function ready() view returns (bool)       // eligible to graduate right now
+function seedTime() view returns (uint64)
+
+// geometry — ticks along the curve (price rises left to right)
+function startTick() view returns (int24)      // curve start (~$4k FDV)
+function minGradTick() view returns (int24)    // earliest graduation (~$30k)
+function gradTarget() view returns (int24)     // auto-graduate price (dev-settable)
+function gradTick() view returns (int24)       // ceiling (~$76k)
+
+function setGradTarget(int24 targetTick)   // creator only, within [min, ceiling]
+function graduate()                        // permissionless once ready()
+
+event Seeded(int24 curveLo, int24 curveHi, uint128 liquidity)
+event GradTargetSet(int24 targetTick)
+event Graduated(address indexed bond, uint256 raisedWeth, uint256 leftoverToken)
+```
+
+## Bond
+
+The floor, posted once at graduation and locked forever. Anyone can call `poke()` to sweep the Sherwood LP's accrued Uniswap fees and compound them back into the locked position — fees never leave to a wallet.
+
+```solidity
+function poke()   // permissionless: compound Sherwood LP fees back into the floor
+
+event Posted(uint128 sherwoodL, uint128 bountyL, uint128 ambushL)
+event Poked(int24 tick, uint128 bountyL, uint128 ambushL, uint256 sherwoodFees0, uint256 sherwoodFees1)
+```
+
+## Events reference
+
+These are everything the [indexer](api.md) consumes — enough to reconstruct the full state of the pad.
+
+| Event | Emitter | Meaning |
+|-------|---------|---------|
+| `Launched` | Factory | New coin: token, curve, pool, dev, opening buy |
+| `Bought` | Router | A buy: ETH in, fee, tokens out |
+| `Sold` | Router | A sell: tokens in, fee, ETH out |
+| `FeeSplit` | Router | Exact fee routing per trade (platform/deferred/cut/dev/floor/burn) |
+| `GradTargetSet` | Curve | Creator moved the auto-graduate price |
+| `Graduated` | Curve | Graduation: raised WETH, the Bond address |
+| `Posted` / `Poked` | Bond | Floor posted / fees compounded |

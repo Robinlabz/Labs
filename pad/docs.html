@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Robin Labs — Developer Docs</title>
+<meta name="description" content="Contracts, ABIs and integration guide for Robin Labs Pad on Robinhood Chain. Launch, trade, read curve state, graduate — and build on the indexer API." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#060803; --bg-2:#0a0e05; --panel:#0c1107; --ink:#f4f7ee; --dim:#93a382;
+    --lime:#c3f53c; --lime-2:#a6e017; --lime-deep:#7fae00;
+    --line:rgba(195,245,60,.22); --line-2:rgba(195,245,60,.10);
+    --code-bg:#0a0d06;
+    --disp:"Bebas Neue",Oswald,Impact,sans-serif;
+    --sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 100% -10%,rgba(195,245,60,.07),transparent 40%);line-height:1.6}
+  a{color:var(--lime-2);text-decoration:none}
+  a:hover{color:var(--lime)}
+  h1,h2,h3,h4,.disp{font-family:var(--disp);font-weight:400;text-transform:uppercase;letter-spacing:.02em;line-height:1;margin:0}
+  code,pre,.mono{font-family:var(--mono)}
+  .layout{display:grid;grid-template-columns:264px 1fr;gap:0;max-width:1240px;margin:0 auto;min-height:100vh}
+
+  /* ── sidebar ── */
+  aside{position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid var(--line-2);padding:22px 18px 60px;background:rgba(6,8,3,.6)}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .brand svg{width:34px;height:34px;color:var(--lime);filter:drop-shadow(0 0 14px rgba(195,245,60,.5))}
+  .brand .wm{font-family:var(--disp);font-size:1.35rem;letter-spacing:.2em;line-height:.8}
+  .brand .wm small{display:block;font-size:.46em;letter-spacing:.5em;color:var(--lime)}
+  aside nav{display:flex;flex-direction:column;gap:1px}
+  aside .grp{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--lime-deep);margin:18px 0 6px;padding-left:10px}
+  aside nav a{color:var(--dim);padding:6px 10px;border-radius:8px;border-left:2px solid transparent;font-size:.9rem;font-weight:500}
+  aside nav a:hover{color:var(--ink);background:rgba(195,245,60,.05)}
+  aside nav a.on{color:var(--ink);border-left-color:var(--lime);background:rgba(195,245,60,.06)}
+
+  /* ── main ── */
+  main{padding:34px 40px 120px;max-width:900px;min-width:0}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .top .links{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:.8rem;color:var(--ink);font-weight:600}
+  .pill:hover{border-color:var(--lime);background:rgba(195,245,60,.06)}
+  h1.title{font-size:3.4rem;margin:6px 0 4px}
+  .lede{color:#cfd6c4;font-size:1.12rem;max-width:64ch}
+  h2{font-size:1.9rem;margin:52px 0 14px;padding-top:14px;border-top:1px solid var(--line-2)}
+  h2 .sec{font-family:var(--mono);font-size:.7rem;color:var(--lime-deep);letter-spacing:.2em;display:block;margin-bottom:8px;font-weight:600}
+  h3{font-size:1.35rem;margin:30px 0 10px;color:var(--lime)}
+  h4{font-size:1.05rem;margin:20px 0 8px;letter-spacing:.06em}
+  p{margin:10px 0}
+  strong{color:#eef4e2}
+  em{color:var(--lime-2);font-style:normal}
+  .m,code.i{font-family:var(--mono);font-size:.86em;background:rgba(195,245,60,.09);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px;color:var(--lime-2);white-space:nowrap}
+
+  /* ── code blocks ── */
+  .code{position:relative;margin:16px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--code-bg)}
+  .code .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(195,245,60,.05);border-bottom:1px solid var(--line-2)}
+  .code .hd .lang{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  .code .cp{font-family:var(--mono);font-size:.72rem;color:var(--lime-2);cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:none;transition:.15s}
+  .code .cp:hover{background:var(--lime);color:#0a0e05}
+  .code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.82rem;line-height:1.6;color:#dfe7d2}
+  .code pre .c{color:#6f8259}     /* comment */
+  .code pre .k{color:var(--lime)} /* keyword */
+  .code pre .s{color:#e4c869}     /* string  */
+
+  /* ── tables ── */
+  .tw{overflow-x:auto;margin:16px 0;border:1px solid var(--line-2);border-radius:12px}
+  table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:520px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  th{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime-deep);background:rgba(195,245,60,.04)}
+  tr:last-child td{border-bottom:none}
+  td .m{white-space:normal}
+  .addr{font-family:var(--mono);font-size:.8rem;color:var(--lime-2);word-break:break-all}
+
+  .note{border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:10px;background:rgba(195,245,60,.05);padding:13px 16px;margin:18px 0;font-size:.92rem}
+  .note .lbl{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime);display:block;margin-bottom:4px}
+  .note.warn{border-left-color:#e4c869;background:rgba(228,200,105,.06)}
+  .note.warn .lbl{color:#e4c869}
+  ul{margin:10px 0;padding-left:22px}li{margin:5px 0}
+  footer{border-top:1px solid var(--line-2);margin-top:60px;padding-top:20px;font-family:var(--mono);font-size:.78rem;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  .menu-btn{display:none}
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr}
+    aside{position:fixed;inset:0 auto 0 0;width:280px;z-index:50;transform:translateX(-100%);transition:transform .2s;height:100vh}
+    aside.open{transform:none}
+    main{padding:20px 20px 90px}
+    h1.title{font-size:2.6rem}
+    .menu-btn{display:inline-flex;position:fixed;top:14px;right:14px;z-index:60;background:var(--lime);color:#0a0e05;border:none;border-radius:10px;padding:9px 13px;font-weight:800;cursor:pointer;box-shadow:0 0 18px rgba(195,245,60,.5)}
+  }
+</style>
+</head>
+<body>
+<button class="menu-btn" id="menuBtn" aria-label="Menu">☰ Docs</button>
+<div class="layout">
+
+<!-- ───────────── SIDEBAR ───────────── -->
+<aside id="side">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 100 100" fill="currentColor"><path d="M20 8h34c17 0 28 10 28 25 0 12-7 20-18 23l20 28H70L52 58H38v26H20V8zm18 15v22h15c8 0 13-4 13-11s-5-11-13-11H38z"/><path d="M78 52l10 14H68z"/></svg>
+    <span class="wm">ROBIN<small>LABS · DOCS</small></span>
+  </a>
+  <nav id="nav">
+    <div class="grp">Start here</div>
+    <a href="#overview">Overview</a>
+    <a href="#network">Network &amp; addresses</a>
+    <a href="#architecture">Architecture</a>
+    <div class="grp">Contracts &amp; ABI</div>
+    <a href="#factory">CurvePadFactory</a>
+    <a href="#router">PadRouter</a>
+    <a href="#curve">CurvePool</a>
+    <a href="#bond">Bond</a>
+    <a href="#events">Events reference</a>
+    <div class="grp">Integrate</div>
+    <a href="#bots">Build a bot</a>
+    <a href="#launch">Launch a coin</a>
+    <a href="#trade">Buy &amp; sell</a>
+    <a href="#read">Read curve state</a>
+    <a href="#graduate">Graduate &amp; dev controls</a>
+    <div class="grp">Economics</div>
+    <a href="#fees">Fee model</a>
+    <a href="#gradmodel">Graduation (“let it ride”)</a>
+    <div class="grp">Build on it</div>
+    <a href="#api">Indexer API</a>
+    <a href="#security">Security model</a>
+  </nav>
+</aside>
+
+<!-- ───────────── MAIN ───────────── -->
+<main>
+  <div class="top">
+    <span class="pill" style="border-color:var(--lime);color:var(--lime)">● Live on Robinhood Chain</span>
+    <div class="links">
+      <a class="pill" href="index.html">← The Pad</a>
+      <a class="pill" href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">Explorer ↗</a>
+      <a class="pill" href="create.html">Launch a coin →</a>
+    </div>
+  </div>
+
+  <h1 class="title">Developer Docs</h1>
+  <p class="lede">Everything you need to launch, trade and build on <strong>Robin Labs Pad</strong> — a creator-first memecoin launchpad on Robinhood Chain. One-transaction launches into a real Uniswap&nbsp;v3 pool, a bonding-curve, a “let it ride” graduation, and a permanently-locked floor: <em>the Bond</em>.</p>
+
+  <!-- OVERVIEW -->
+  <h2 id="overview"><span class="sec">01 · Start here</span>Overview</h2>
+  <p>Robin Labs is a set of audited, non-upgradeable contracts. There are no proxies and no admin backdoors — the platform owner can point new launches at a fee wallet and nothing else. A launch is a single transaction that deploys the token, seeds the bonding curve, opens trading, and (optionally) executes the creator's own opening buy — atomically.</p>
+  <ul>
+    <li><strong>Real DEX from block one.</strong> Every coin is a genuine Uniswap v3 pool, so it's chartable on DexScreener the moment it launches.</li>
+    <li><strong>Approval-free buys.</strong> Buying sends native ETH — no token approval. Selling needs one exact-amount approval to the router (never infinite, never to a personal wallet).</li>
+    <li><strong>Fees ride the protocol.</strong> The 1% is the Uniswap LP fee tier, collected in-protocol — there's never a side-transfer bolted onto your transaction.</li>
+    <li><strong>Un-ruggable graduation.</strong> At graduation, liquidity is posted to the Bond and locked forever, with a WETH floor that only deepens with volume.</li>
+  </ul>
+
+  <!-- NETWORK -->
+  <h2 id="network"><span class="sec">01 · Start here</span>Network &amp; addresses</h2>
+  <div class="tw"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td>Chain</td><td>Robinhood Chain (Arbitrum Orbit L2, EVM)</td></tr>
+    <tr><td>Chain ID</td><td><span class="m">4663</span> &nbsp;(<span class="m">0x1237</span>)</td></tr>
+    <tr><td>Currency</td><td>ETH (18 decimals)</td></tr>
+    <tr><td>Public RPC</td><td class="addr">https://robinhoodchain.blockscout.com/api/eth-rpc</td></tr>
+    <tr><td>Explorer</td><td class="addr">https://robinhoodchain.blockscout.com</td></tr>
+    <tr><td>Per-tx gas cap</td><td><span class="m">16,777,216</span> (2²⁴) — relevant if you batch calls</td></tr>
+  </table></div>
+
+  <h4>Contract addresses (live)</h4>
+  <div class="tw"><table>
+    <tr><th>Contract</th><th>Address</th><th>Role</th></tr>
+    <tr><td><span class="m">CurvePadFactory</span></td><td class="addr">0xc208e393990B6f2BC8D0d330E0be38C6eCA1e25B</td><td>One-call launch entrypoint</td></tr>
+    <tr><td><span class="m">PadRouter</span></td><td class="addr">0x1988dEFfE3799Fb56F949ffb20C65D20c1547570</td><td>The swap desk — every buy/sell goes through it</td></tr>
+    <tr><td><span class="m">WETH</span></td><td class="addr">0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73</td><td>Canonical wrapped ETH</td></tr>
+    <tr><td><span class="m">UniswapV3Factory</span></td><td class="addr">0x1f7d7550b1b028f7571e69a784071f0205fd2efa</td><td>The real v3 factory each pool is created on</td></tr>
+  </table></div>
+  <p><span class="m">CurvePool</span> and <span class="m">Bond</span> addresses are <strong>per-coin</strong> — you get them from the factory's <span class="m">Launched</span> event or <span class="m">recordOf(token)</span>, and from <span class="m">router.bondOf(token)</span>.</p>
+
+  <!-- ARCHITECTURE -->
+  <h2 id="architecture"><span class="sec">01 · Start here</span>Architecture</h2>
+  <p>A coin's whole life touches four contracts:</p>
+  <div class="tw"><table>
+    <tr><th>Contract</th><th>Owns</th></tr>
+    <tr><td><span class="m">CurvePadFactory</span></td><td>Deploys the token + curve + pool in one tx, registers the coin with the router, runs the anti-snipe opening buy.</td></tr>
+    <tr><td><span class="m">CurvePool</span></td><td>The bonding curve — a single-sided v3 position spanning <span class="m">[startTick → gradTick]</span>. Owns graduation and the “let it ride” logic.</td></tr>
+    <tr><td><span class="m">PadRouter</span></td><td>The only trade path. Applies the 1% fee in-protocol, splits it to escrows, exposes dev fee controls.</td></tr>
+    <tr><td><span class="m">Bond</span></td><td>Protocol-owned floor posted at graduation and locked forever — <em>Sherwood</em> (full-range LP), <em>Bounty</em> (WETH buy-wall), <em>Ambush</em> (token sell-wall). Fees compound back in via <span class="m">poke()</span>.</td></tr>
+  </table></div>
+
+  <!-- ─────────── CONTRACTS & ABI ─────────── -->
+  <h2 id="factory"><span class="sec">02 · Contracts &amp; ABI</span>CurvePadFactory</h2>
+  <p>The launch entrypoint. <span class="m">launch()</span> is <strong>payable</strong> — any ETH you send is the creator's own opening buy (capped at 2% of supply), executed atomically before public trading opens.</p>
+  <div class="code"><div class="hd"><span class="lang">Solidity ABI · human-readable (ethers)</span><button class="cp">Copy</button></div><pre><span class="c">// The launch params tuple. tax.projectWallet receives the creator's sell fee.</span>
+function launch(
+  (string name, string symbol, address dev,
+   (uint16 buyBps, uint16 sellBps, uint16 walletBps,
+    uint16 floorBps, uint16 burnBps, address projectWallet) tax) p
+) payable returns (address token, address curve, address pool)
+
+function tokenCount() view returns (uint256)
+function allTokens(uint256 index) view returns (address)
+function recordOf(address token) view returns (address token, address curve, address dev, uint256 at)
+
+event Launched(address indexed token, address indexed curve, address indexed pool, address dev, uint256 devBought)</pre></div>
+  <div class="note"><span class="lbl">Fee caps (enforced on-chain)</span>Each side (<span class="m">buyBps</span>/<span class="m">sellBps</span>) is 1%–4% (<span class="m">100–400</span> bps). The baseline 1% is mandatory. The opening dev buy is capped at 2% of supply (<span class="m">200</span> bps). Total supply is fixed at <span class="m">1,000,000,000</span>.</div>
+
+  <h2 id="router"><span class="sec">02 · Contracts &amp; ABI</span>PadRouter</h2>
+  <p>Every trade goes through the router. Buys send native ETH (no approval); sells need one exact-amount approval to the router. The fee split happens inside — no side transfers.</p>
+  <div class="code"><div class="hd"><span class="lang">Solidity ABI · human-readable (ethers)</span><button class="cp">Copy</button></div><pre>function buy(address token, uint256 minOut) payable returns (uint256 tokensOut)
+function sell(address token, uint256 amountIn, uint256 minOutEth) returns (uint256 ethOut)
+
+<span class="c">// reads</span>
+function configOf(address token) view returns (
+  (address pool, address curve, address projectWallet,
+   uint16 buyBps, uint16 sellBps, uint16 walletBps,
+   uint16 floorBps, uint16 burnBps, bool set) )
+function devEscrow(address token) view returns (uint256)   <span class="c">// creator's uncollected sell fees (wei)</span>
+function bondOf(address token) view returns (address)
+
+<span class="c">// creator-only fee controls (projectWallet)</span>
+function withdrawDev(address token)   <span class="c">// collect escrowed sell fees to the wallet</span>
+function burnDev(address token)       <span class="c">// buy + burn with them instead</span>
+
+event Bought(address indexed token, address indexed buyer, uint256 ethIn, uint256 fee, uint256 tokensOut)
+event Sold(address indexed token, address indexed seller, uint256 tokensIn, uint256 fee, uint256 ethOut)
+event FeeSplit(address indexed token, uint256 platform, uint256 deferred, uint256 platformCut, uint256 dev, uint256 floor, uint256 burn)</pre></div>
+
+  <h2 id="curve"><span class="sec">02 · Contracts &amp; ABI</span>CurvePool</h2>
+  <p>The bonding curve and graduation. Read it for progress and the graduation window; call <span class="m">graduate()</span> (permissionless) to post the Bond, or <span class="m">setGradTarget()</span> (creator-only) to move the auto-graduate price.</p>
+  <div class="code"><div class="hd"><span class="lang">Solidity ABI · human-readable (ethers)</span><button class="cp">Copy</button></div><pre>function pool() view returns (address)     <span class="c">// the Uniswap v3 pool</span>
+function dev() view returns (address)
+function bond() view returns (address)     <span class="c">// zero until graduated</span>
+function seeded() view returns (bool)
+function graduated() view returns (bool)
+function ready() view returns (bool)       <span class="c">// eligible to graduate right now</span>
+function seedTime() view returns (uint64)
+
+<span class="c">// geometry — ticks along the curve (price rises left→right)</span>
+function startTick() view returns (int24)      <span class="c">// curve start (~$4k FDV)</span>
+function minGradTick() view returns (int24)    <span class="c">// earliest graduation (~$30k)</span>
+function gradTarget() view returns (int24)     <span class="c">// auto-graduate price (dev-settable)</span>
+function gradTick() view returns (int24)       <span class="c">// ceiling (~$76k)</span>
+
+function setGradTarget(int24 targetTick)   <span class="c">// creator only, within [min, ceiling]</span>
+function graduate()                        <span class="c">// permissionless once ready()</span>
+
+event Seeded(int24 curveLo, int24 curveHi, uint128 liquidity)
+event GradTargetSet(int24 targetTick)
+event Graduated(address indexed bond, uint256 raisedWeth, uint256 leftoverToken)</pre></div>
+
+  <h2 id="bond"><span class="sec">02 · Contracts &amp; ABI</span>Bond</h2>
+  <p>The floor, posted once at graduation and locked forever. Anyone can call <span class="m">poke()</span> to sweep the Sherwood LP's accrued Uniswap fees and compound them back into the locked position — fees never leave to a wallet.</p>
+  <div class="code"><div class="hd"><span class="lang">Solidity ABI · human-readable (ethers)</span><button class="cp">Copy</button></div><pre>function poke()   <span class="c">// permissionless: compound Sherwood LP fees back into the floor</span>
+
+event Posted(uint128 sherwoodL, uint128 bountyL, uint128 ambushL)
+event Poked(int24 tick, uint128 bountyL, uint128 ambushL, uint256 sherwoodFees0, uint256 sherwoodFees1)</pre></div>
+
+  <h2 id="events"><span class="sec">02 · Contracts &amp; ABI</span>Events reference</h2>
+  <p>These are everything the <a href="#api">indexer</a> consumes — enough to reconstruct the full state of the pad.</p>
+  <div class="tw"><table>
+    <tr><th>Event</th><th>Emitter</th><th>Meaning</th></tr>
+    <tr><td><span class="m">Launched</span></td><td>Factory</td><td>New coin: token, curve, pool, dev, opening buy</td></tr>
+    <tr><td><span class="m">Bought</span></td><td>Router</td><td>A buy: ETH in, fee, tokens out</td></tr>
+    <tr><td><span class="m">Sold</span></td><td>Router</td><td>A sell: tokens in, fee, ETH out</td></tr>
+    <tr><td><span class="m">FeeSplit</span></td><td>Router</td><td>Exact fee routing per trade (platform/deferred/cut/dev/floor/burn)</td></tr>
+    <tr><td><span class="m">GradTargetSet</span></td><td>Curve</td><td>Creator moved the auto-graduate price</td></tr>
+    <tr><td><span class="m">Graduated</span></td><td>Curve</td><td>Graduation: raised WETH, the Bond address</td></tr>
+    <tr><td><span class="m">Posted</span> / <span class="m">Poked</span></td><td>Bond</td><td>Floor posted / fees compounded</td></tr>
+  </table></div>
+
+  <!-- ─────────── INTEGRATE ─────────── -->
+  <h2 id="bots"><span class="sec">03 · Integrate</span>Build a bot</h2>
+  <p>Everything here is <strong>permissionless and public</strong> — no API key, no allow-list, no sign-up. If you can send a transaction, you can integrate. Three calls get you a working trade bot: watch launches, buy, sell.</p>
+  <div class="code"><div class="hd"><span class="lang">JavaScript · ethers v6</span><button class="cp">Copy</button></div><pre><span class="c">// 1) WATCH new launches — one event on the factory</span>
+<span class="k">const</span> factory = <span class="k">new</span> ethers.Contract(FACTORY, [
+  <span class="s">"event Launched(address indexed token,address indexed curve,address indexed pool,address dev,uint256 devBought)"</span>,
+], provider);
+factory.on(<span class="s">"Launched"</span>, (token, curve, pool, dev) => {
+  <span class="c">// ...decide whether to snipe it, inside the same block the dev opens</span>
+});
+
+<span class="c">// 2) BUY — native ETH in, no approval</span>
+<span class="k">const</span> value = ethers.parseEther(<span class="s">"0.1"</span>);
+<span class="k">const</span> q = <span class="k">await</span> router.buy.staticCall(token, <span class="s">0n</span>, { value });
+<span class="k">await</span> (<span class="k">await</span> router.buy(token, q * <span class="s">99n</span> / <span class="s">100n</span>, { value })).wait();
+
+<span class="c">// 3) SELL — one exact-amount approval, then sell</span>
+<span class="k">await</span> (<span class="k">await</span> erc20.approve(ROUTER, amountIn)).wait();
+<span class="k">await</span> (<span class="k">await</span> router.sell(token, amountIn, minOutEth)).wait();</pre></div>
+  <div class="note"><span class="lbl">Skip the RPC crawl</span>For discovery, don't poll the chain — hit the <a href="#api">indexer API</a>: <span class="m">GET /api/coins?sort=new</span> for a snipe feed, <span class="m">?sort=trending</span> for what's hot, <span class="m">/api/trades/{token}</span> for a coin's flow. Every coin comes back with progress, mcap, price and 24h volume — no per-coin reads.</div>
+  <p><strong>Ideas that print:</strong> snipe bot (buy on <span class="m">Launched</span>) · buy-alert / trending bot (poll the API → Telegram/X) · keeper (<span class="m">graduate()</span> is permissionless — fire it when <span class="m">ready()</span> flips) · copy-trade (mirror a wallet's <span class="m">Bought</span>/<span class="m">Sold</span>). Nothing to request, no rate limit on-chain — and every trade your bot routes still pays the coin's fee in-protocol, so the floor and the whole ecosystem grow with your volume. <em>Bring the bots.</em></p>
+
+  <h2 id="launch"><span class="sec">03 · Integrate</span>Launch a coin</h2>
+  <p>One transaction. Send ETH with the call to make the creator's opening buy (≤2%), or send <span class="m">0</span> for a clean launch. All snippets use <strong>ethers v6</strong>.</p>
+  <div class="code"><div class="hd"><span class="lang">JavaScript · ethers v6</span><button class="cp">Copy</button></div><pre><span class="k">import</span> { ethers } <span class="k">from</span> <span class="s">"ethers"</span>;
+
+<span class="k">const</span> FACTORY = <span class="s">"0xc208e393990B6f2BC8D0d330E0be38C6eCA1e25B"</span>;
+<span class="k">const</span> abi = [
+  <span class="s">"function launch((string name,string symbol,address dev,(uint16 buyBps,uint16 sellBps,uint16 walletBps,uint16 floorBps,uint16 burnBps,address projectWallet) tax) p) payable returns (address token,address curve,address pool)"</span>,
+];
+<span class="k">const</span> signer = <span class="k">await</span> <span class="k">new</span> ethers.BrowserProvider(window.ethereum).getSigner();
+<span class="k">const</span> factory = <span class="k">new</span> ethers.Contract(FACTORY, abi, signer);
+
+<span class="k">const</span> me = <span class="k">await</span> signer.getAddress();
+<span class="k">const</span> params = {
+  name: <span class="s">"Sherwood"</span>, symbol: <span class="s">"WOOD"</span>, dev: me,
+  tax: {
+    buyBps: <span class="s">100</span>,   <span class="c">// 1% buy  → platform (min)</span>
+    sellBps: <span class="s">100</span>,  <span class="c">// 1% sell → you, the creator (min)</span>
+    walletBps: <span class="s">0</span>, floorBps: <span class="s">0</span>, burnBps: <span class="s">0</span>, <span class="c">// split of any ABOVE-1% fee</span>
+    projectWallet: me,                 <span class="c">// where your sell fee lands</span>
+  },
+};
+
+<span class="c">// staticCall first to get addresses without spending gas, then send.</span>
+<span class="k">const</span> [token] = <span class="k">await</span> factory.launch.staticCall(params, { value: <span class="s">0n</span> });
+<span class="k">const</span> tx = <span class="k">await</span> factory.launch(params, { value: ethers.parseEther(<span class="s">"0.02"</span>) }); <span class="c">// opening buy</span>
+<span class="k">await</span> tx.wait();
+console.log(<span class="s">"launched"</span>, token);</pre></div>
+  <div class="note warn"><span class="lbl">Opening buy = anti-snipe, not a fee</span>The ETH you send is <em>your own buy</em>, executed inside the launch tx before anyone else can trade — it isn't a platform charge. Capped at 2% of supply.</div>
+
+  <h2 id="trade"><span class="sec">03 · Integrate</span>Buy &amp; sell</h2>
+  <div class="code"><div class="hd"><span class="lang">JavaScript · ethers v6</span><button class="cp">Copy</button></div><pre><span class="k">const</span> ROUTER = <span class="s">"0x1988dEFfE3799Fb56F949ffb20C65D20c1547570"</span>;
+<span class="k">const</span> rAbi = [
+  <span class="s">"function buy(address token,uint256 minOut) payable returns (uint256)"</span>,
+  <span class="s">"function sell(address token,uint256 amountIn,uint256 minOutEth) returns (uint256)"</span>,
+];
+<span class="k">const</span> router = <span class="k">new</span> ethers.Contract(ROUTER, rAbi, signer);
+
+<span class="c">// BUY — native ETH in, no approval. Quote first, then apply slippage.</span>
+<span class="k">const</span> quoted = <span class="k">await</span> router.buy.staticCall(token, <span class="s">0n</span>, { value: ethers.parseEther(<span class="s">"0.1"</span>) });
+<span class="k">const</span> minOut = quoted * <span class="s">99n</span> / <span class="s">100n</span>; <span class="c">// 1% slippage</span>
+<span class="k">await</span> (<span class="k">await</span> router.buy(token, minOut, { value: ethers.parseEther(<span class="s">"0.1"</span>) })).wait();
+
+<span class="c">// SELL — one EXACT-amount approval to the router, then sell.</span>
+<span class="k">const</span> erc20 = <span class="k">new</span> ethers.Contract(token, [<span class="s">"function approve(address,uint256) returns (bool)"</span>], signer);
+<span class="k">await</span> (<span class="k">await</span> erc20.approve(ROUTER, amountIn)).wait();
+<span class="k">await</span> (<span class="k">await</span> router.sell(token, amountIn, minOutEth)).wait();</pre></div>
+
+  <h2 id="read"><span class="sec">03 · Integrate</span>Read curve state</h2>
+  <p>The curve's ticks + the pool's current tick give you progress and market cap. (Or skip all of this and hit the <a href="#api">indexer API</a>, which precomputes it.)</p>
+  <div class="code"><div class="hd"><span class="lang">JavaScript · ethers v6</span><button class="cp">Copy</button></div><pre><span class="k">const</span> curve = <span class="k">new</span> ethers.Contract(curveAddr, [
+  <span class="s">"function pool() view returns (address)"</span>,
+  <span class="s">"function startTick() view returns (int24)"</span>,
+  <span class="s">"function gradTick() view returns (int24)"</span>,
+  <span class="s">"function graduated() view returns (bool)"</span>,
+], provider);
+<span class="k">const</span> [poolAddr, start, ceil] = <span class="k">await</span> Promise.all([curve.pool(), curve.startTick(), curve.gradTick()]);
+
+<span class="k">const</span> pool = <span class="k">new</span> ethers.Contract(poolAddr, [
+  <span class="s">"function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16,uint16,uint16,uint8,bool)"</span>,
+], provider);
+<span class="k">const</span> { tick } = <span class="k">await</span> pool.slot0();
+
+<span class="k">const</span> span = Math.abs(Number(ceil) - Number(start)) || <span class="s">1</span>;
+<span class="k">const</span> progress = Math.min(<span class="s">1</span>, Math.abs(Number(tick) - Number(start)) / span); <span class="c">// 0 … 1</span></pre></div>
+
+  <h2 id="graduate"><span class="sec">03 · Integrate</span>Graduate &amp; dev controls</h2>
+  <div class="code"><div class="hd"><span class="lang">JavaScript · ethers v6</span><button class="cp">Copy</button></div><pre><span class="k">const</span> curve = <span class="k">new</span> ethers.Contract(curveAddr, [
+  <span class="s">"function ready() view returns (bool)"</span>,
+  <span class="s">"function graduate()"</span>,
+  <span class="s">"function setGradTarget(int24 targetTick)"</span>,
+], signer);
+
+<span class="c">// Anyone can graduate once ready() — this is the "Graduate" button / a keeper bot.</span>
+<span class="k">if</span> (<span class="k">await</span> curve.ready()) <span class="k">await</span> (<span class="k">await</span> curve.graduate()).wait();
+
+<span class="c">// Creator only: move the auto-graduate price. Lower = graduate sooner;</span>
+<span class="c">// higher = ride longer for a bigger raise + thicker floor.</span>
+<span class="k">await</span> (<span class="k">await</span> curve.setGradTarget(targetTick)).wait();
+
+<span class="c">// Creator only: collect your escrowed sell fees — or buy + burn with them.</span>
+<span class="k">const</span> router = <span class="k">new</span> ethers.Contract(ROUTER, [
+  <span class="s">"function withdrawDev(address)"</span>, <span class="s">"function burnDev(address)"</span>,
+], signer);
+<span class="k">await</span> (<span class="k">await</span> router.withdrawDev(token)).wait();</pre></div>
+
+  <!-- ─────────── ECONOMICS ─────────── -->
+  <h2 id="fees"><span class="sec">04 · Economics</span>Fee model</h2>
+  <p>Every coin pays a mandatory <strong>1% per side</strong>. A creator may set a side higher (up to 4%); the amount <em>above</em> 1% is the “raised” fee and splits 25% platform / 75% project.</p>
+  <div class="tw"><table>
+    <tr><th>Flow</th><th>Goes to</th><th>Detail</th></tr>
+    <tr><td>Buy 1% base</td><td><strong>Platform</strong></td><td>0.9% immediately, 0.1% released at graduation</td></tr>
+    <tr><td>Sell 1% base</td><td><strong>Creator</strong></td><td>Escrowed; collect to wallet or buy+burn</td></tr>
+    <tr><td>Above-1% (raised)</td><td>25% platform / 75% project</td><td>Project 75% splits by <span class="m">walletBps/floorBps/burnBps</span></td></tr>
+    <tr><td>Graduation reward</td><td><strong>Creator</strong></td><td><strong>25% of the raise</strong> paid at graduation</td></tr>
+    <tr><td>Sherwood LP fees</td><td><strong>The floor</strong></td><td>Compound back into the locked Bond via <span class="m">poke()</span></td></tr>
+  </table></div>
+  <div class="note"><span class="lbl">Creator income</span>1% sell tax + 25% graduation reward + any project share of raised tax. Every share is escrowed and paid by separate permissionless flushers, so a trade can never revert on a payout. Accounting is exact to the wei.</div>
+
+  <h2 id="gradmodel"><span class="sec">04 · Economics</span>Graduation — “let it ride”</h2>
+  <p>Graduation is a <strong>window</strong>, not a line. It becomes eligible at the minimum (~$30k mcap) and can fire anywhere up to the ceiling (~$76k). The longer a coin rides, the bigger the raise and the thicker the floor.</p>
+  <div class="tw"><table>
+    <tr><th>Parameter</th><th>Meaning</th><th>Set by</th></tr>
+    <tr><td><span class="m">minGradTick</span></td><td>Earliest graduation is allowed (~$30k)</td><td>Fixed at launch</td></tr>
+    <tr><td><span class="m">gradTarget</span></td><td>Auto-graduate price. Defaults 40% up the range (~$45k)</td><td>Creator (<span class="m">setGradTarget</span>)</td></tr>
+    <tr><td><span class="m">gradTick</span></td><td>Ceiling (~$76k). Buys can't push past it</td><td>Fixed at launch</td></tr>
+    <tr><td>Timeout</td><td>After 7 days, anyone may graduate at the minimum</td><td>Permissionless fallback</td></tr>
+  </table></div>
+  <p>On graduation the curve collects the raised WETH + unsold tokens, pays the <strong>creator 25% of the raise</strong>, and posts the rest as the Bond: the Sherwood full-range LP, the Bounty WETH floor, and the Ambush token wall.</p>
+
+  <!-- ─────────── API ─────────── -->
+  <h2 id="api"><span class="sec">05 · Build on it</span>Indexer API</h2>
+  <p>An optional read API (see <span class="m">/indexer</span> in the repo) reads the events above into a database and serves a fast browse feed, trending/top sorting, search, per-coin trades and volume — so you don't fan out dozens of RPC calls per page. It's read-only and signs nothing; the pad falls back to direct-RPC when it isn't configured.</p>
+  <div class="tw"><table>
+    <tr><th>Route</th><th>Returns</th></tr>
+    <tr><td><span class="m">GET /health</span></td><td><span class="m">{ ok, head, cursor, coins, trades }</span></td></tr>
+    <tr><td><span class="m">GET /api/stats</span></td><td>Totals: coins, graduated, 24h volume &amp; trades</td></tr>
+    <tr><td><span class="m">GET /api/coins</span></td><td>Browse feed — params below</td></tr>
+    <tr><td><span class="m">GET /api/coin/:token</span></td><td>One coin, fully enriched (progress, mcap, volume)</td></tr>
+    <tr><td><span class="m">GET /api/trades/:token</span></td><td>Recent trades (exact wei)</td></tr>
+  </table></div>
+  <div class="code"><div class="hd"><span class="lang">HTTP</span><button class="cp">Copy</button></div><pre><span class="c"># sort: new | trending | top | graduated   filter: all | live | graduated</span>
+GET /api/coins?sort=trending&filter=live&q=wood&limit=60
+
+<span class="c"># each coin includes:</span>
+{ token, curve, pool, dev, name, symbol, launchTs, devBought,
+  graduated, raisedWeth, bond,
+  progress, mcapEth, lastPriceEth,           <span class="c"># live snapshot — no chain read needed</span>
+  tradesAll, trades24h, volAllEth, vol24hEth,
+  startTick, minGradTick, gradTick, gradTarget }</pre></div>
+  <div class="note"><span class="lbl">Built for scale</span>The feed is served from precomputed snapshots (progress/mcap refreshed whenever a coin trades), so a page that lists thousands of live coins costs <strong>one</strong> request and <strong>zero</strong> per-coin RPC. Responses are cacheable (<span class="m">max-age=5</span>) — put a CDN in front and a launch-day crowd hits cache, not the database.</div>
+
+  <!-- ─────────── SECURITY ─────────── -->
+  <h2 id="security"><span class="sec">05 · Build on it</span>Security model</h2>
+  <ul>
+    <li><strong>No proxies, no upgrades.</strong> The contracts are immutable. The platform owner (Ownable2Step) can only set the fee wallet for <em>new</em> launches — never touch a live coin, its curve, or the Bond.</li>
+    <li><strong>Floor-drain closed.</strong> Graduation refuses to post above the ceiling — the only unbacked price zone. Anywhere inside the curve, moving price up costs real WETH that <em>joins</em> the raise, so a manipulated graduation price is one the attacker paid for, and the floor sits below it.</li>
+    <li><strong>Conservation.</strong> Every wei of WETH and every token is accounted for across the lifecycle — verified to the wei by a 300-run fuzz and a random-graduation battery.</li>
+    <li><strong>Anti-snipe.</strong> The creator's opening buy runs atomically inside the launch tx; a CREATE2 salt with per-launch entropy blocks pre-init pool DoS.</li>
+    <li><strong>Fees in-protocol.</strong> The 1% is the Uniswap LP fee tier, not a side transfer — no extra instruction is ever attached to a user's transaction.</li>
+  </ul>
+  <div class="note"><span class="lbl">Audit</span>Three internal audit passes (manual, deep pre-production, and a dedicated adversarial pass) plus a live mainnet lifecycle validation. Findings and resolutions live in <span class="m">launchpad/AUDIT.md</span>; contract source in <span class="m">launchpad/contracts/</span>.</div>
+
+  <footer>
+    <span>Robin Labs · Built on Robinhood Chain</span>
+    <span>🌐 robinlabs.io &nbsp;·&nbsp; 𝕏 @robinlabshb</span>
+  </footer>
+</main>
+</div>
+
+<script>
+  // copy buttons
+  document.querySelectorAll('.code').forEach(block => {
+    const btn = block.querySelector('.cp'); const pre = block.querySelector('pre');
+    if (!btn || !pre) return;
+    btn.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(pre.innerText); btn.textContent = 'Copied ✓';
+        setTimeout(() => btn.textContent = 'Copy', 1400); } catch { btn.textContent = 'Ctrl+C'; }
+    });
+  });
+  // active-section highlight
+  const links = [...document.querySelectorAll('#nav a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) {
+      links.forEach(a => a.classList.remove('on'));
+      map.get(e.target.id)?.classList.add('on');
+    }});
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  document.querySelectorAll('main [id]').forEach(s => io.observe(s));
+  // mobile menu
+  const side = document.getElementById('side'), mb = document.getElementById('menuBtn');
+  mb?.addEventListener('click', () => side.classList.toggle('open'));
+  document.querySelectorAll('#nav a').forEach(a => a.addEventListener('click', () => side.classList.remove('open')));
+</script>
+</body>
+</html>

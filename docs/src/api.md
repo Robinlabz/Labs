@@ -1,0 +1,29 @@
+# Indexer API
+
+An optional read API reads the on-chain events into a database and serves a fast browse feed, trending/top sorting, search, per-coin trades and volume — so you don't fan out dozens of RPC calls per page. It's read-only and signs nothing; the pad falls back to direct-RPC when it isn't configured.
+
+| Route | Returns |
+|-------|---------|
+| `GET /health` | `{ ok, head, cursor, coins, trades }` |
+| `GET /api/stats` | Totals: coins, graduated, 24h volume & trades |
+| `GET /api/coins` | Browse feed — params below |
+| `GET /api/coin/:token` | One coin, fully enriched (progress, mcap, volume) |
+| `GET /api/trades/:token` | Recent trades (exact wei) |
+
+```http
+# sort: new | trending | top | graduated   filter: all | live | graduated
+GET /api/coins?sort=trending&filter=live&q=wood&limit=60
+
+# each coin includes:
+{ token, curve, pool, dev, name, symbol, launchTs, devBought,
+  graduated, raisedWeth, bond,
+  progress, mcapEth, lastPriceEth,           # live snapshot — no chain read needed
+  tradesAll, trades24h, volAllEth, vol24hEth,
+  startTick, minGradTick, gradTick, gradTarget }
+```
+
+> **Built for scale.** The feed is served from precomputed snapshots (progress/mcap refreshed whenever a coin trades), so a page that lists thousands of live coins costs **one** request and **zero** per-coin RPC. Responses are cacheable (`max-age=5`) — put a CDN in front and a launch-day crowd hits cache, not the database.
+
+## Self-hosting
+
+The indexer is a small Node service (reorg-safe log poller + JSON API over SQLite). It ships with a Dockerfile and a Compose file that also serves the static pad on the same domain with automatic HTTPS. For a launch-day crowd: point it at a private RPC (Alchemy / QuickNode) and put Cloudflare in front.

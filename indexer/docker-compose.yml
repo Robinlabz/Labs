@@ -1,0 +1,52 @@
+# Robin Labs Pad — full stack in one command:
+#   docker compose up -d
+#
+#   • indexer  — reads the chain, serves the JSON API (internal :8787)
+#   • caddy    — serves the static pad/ AND proxies /api + /health to the
+#                indexer, on ONE domain with automatic HTTPS (Let's Encrypt).
+#
+# Same origin for site + API means no CORS and one certificate. Point your
+# domain's A record at this box, set SITE_DOMAIN in .env, and go.
+#
+# For 10k concurrent: put Cloudflare (orange-cloud) in front — the API sends
+# cache-control: max-age=5, so a launch-day crowd is served from the CDN edge
+# and only ~1 request per 5s per route reaches this box.
+
+services:
+  indexer:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /app/data/robinlabs.db
+      PORT: "8787"
+    volumes:
+      - indexer-data:/app/data
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - indexer
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../pad:/srv/pad:ro          # the static site
+      - caddy-data:/data            # certificates (persist!)
+      - caddy-config:/config
+
+volumes:
+  indexer-data:
+  caddy-data:
+  caddy-config:

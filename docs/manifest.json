@@ -1,0 +1,40 @@
+{
+  "name": "Robin Labs",
+  "site": "https://robinlabs.io",
+  "groups": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        { "slug": "overview",    "src": "overview.md",    "title": "Overview",             "description": "What Robin Labs Pad is and how the four contracts fit together." },
+        { "slug": "network",     "src": "network.md",     "title": "Network & Addresses",  "description": "Robinhood Chain details, live contract addresses, and constants." }
+      ]
+    },
+    {
+      "group": "Contracts & ABI",
+      "pages": [
+        { "slug": "contracts",   "src": "contracts.md",   "title": "Contracts & ABI",      "description": "Human-readable ABIs for the factory, router, curve and bond, plus the events reference." }
+      ]
+    },
+    {
+      "group": "Integrate",
+      "pages": [
+        { "slug": "bots",        "src": "bots.md",        "title": "Build a Bot",          "description": "The permissionless fast path for bot devs — watch launches, buy, sell, and discover coins via the API." },
+        { "slug": "integration", "src": "integration.md", "title": "Integration Guide",    "description": "Copy-paste ethers v6: launch, buy/sell, read curve state, graduate and dev controls." }
+      ]
+    },
+    {
+      "group": "Economics",
+      "pages": [
+        { "slug": "fees",        "src": "fees.md",        "title": "Fee Model",            "description": "How the 1%-per-side fee, raised fees, graduation reward and LP-fee compounding flow." },
+        { "slug": "graduation",  "src": "graduation.md",  "title": "Graduation",           "description": "The 'let it ride' graduation window and the three positions of the Bond." }
+      ]
+    },
+    {
+      "group": "Build On It",
+      "pages": [
+        { "slug": "api",         "src": "api.md",         "title": "Indexer API",          "description": "A fast read API for the browse feed, trades, volume and stats — built to scale." },
+        { "slug": "security",    "src": "security.md",    "title": "Security Model",       "description": "Immutability, floor-drain proof, conservation, anti-snipe and wallet safety." }
+      ]
+    }
+  ]
+}

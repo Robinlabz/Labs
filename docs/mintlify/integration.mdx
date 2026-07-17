@@ -1,0 +1,108 @@
+---
+title: "Integration Guide"
+description: "Copy-paste ethers v6: launch, buy/sell, read curve state, graduate and dev controls."
+---
+
+# Integration Guide
+
+All snippets use **ethers v6**.
+
+## Launch a coin
+
+One transaction. Send ETH with the call to make the creator's opening buy (≤2%), or send `0` for a clean launch.
+
+```js
+import { ethers } from "ethers";
+
+const FACTORY = "0xc208e393990B6f2BC8D0d330E0be38C6eCA1e25B";
+const abi = [
+  "function launch((string name,string symbol,address dev,(uint16 buyBps,uint16 sellBps,uint16 walletBps,uint16 floorBps,uint16 burnBps,address projectWallet) tax) p) payable returns (address token,address curve,address pool)",
+];
+const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
+const factory = new ethers.Contract(FACTORY, abi, signer);
+
+const me = await signer.getAddress();
+const params = {
+  name: "Sherwood", symbol: "WOOD", dev: me,
+  tax: {
+    buyBps: 100,   // 1% buy  -> platform (min)
+    sellBps: 100,  // 1% sell -> you, the creator (min)
+    walletBps: 0, floorBps: 0, burnBps: 0, // split of any ABOVE-1% fee
+    projectWallet: me,                     // where your sell fee lands
+  },
+};
+
+// staticCall first to get addresses without spending gas, then send.
+const [token] = await factory.launch.staticCall(params, { value: 0n });
+const tx = await factory.launch(params, { value: ethers.parseEther("0.02") }); // opening buy
+await tx.wait();
+console.log("launched", token);
+```
+
+> **The opening buy is anti-snipe, not a fee.** The ETH you send is *your own buy*, executed inside the launch tx before anyone else can trade — it isn't a platform charge. Capped at 2% of supply.
+
+## Buy & sell
+
+```js
+const ROUTER = "0x1988dEFfE3799Fb56F949ffb20C65D20c1547570";
+const rAbi = [
+  "function buy(address token,uint256 minOut) payable returns (uint256)",
+  "function sell(address token,uint256 amountIn,uint256 minOutEth) returns (uint256)",
+];
+const router = new ethers.Contract(ROUTER, rAbi, signer);
+
+// BUY — native ETH in, no approval. Quote first, then apply slippage.
+const quoted = await router.buy.staticCall(token, 0n, { value: ethers.parseEther("0.1") });
+const minOut = quoted * 99n / 100n; // 1% slippage
+await (await router.buy(token, minOut, { value: ethers.parseEther("0.1") })).wait();
+
+// SELL — one EXACT-amount approval to the router, then sell.
+const erc20 = new ethers.Contract(token, ["function approve(address,uint256) returns (bool)"], signer);
+await (await erc20.approve(ROUTER, amountIn)).wait();
+await (await router.sell(token, amountIn, minOutEth)).wait();
+```
+
+## Read curve state
+
+The curve's ticks + the pool's current tick give you progress and market cap. (Or skip all of this and hit the [indexer API](api.md), which precomputes it.)
+
+```js
+const curve = new ethers.Contract(curveAddr, [
+  "function pool() view returns (address)",
+  "function startTick() view returns (int24)",
+  "function gradTick() view returns (int24)",
+  "function graduated() view returns (bool)",
+], provider);
+const [poolAddr, start, ceil] = await Promise.all([curve.pool(), curve.startTick(), curve.gradTick()]);
+
+const pool = new ethers.Contract(poolAddr, [
+  "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16,uint16,uint16,uint8,bool)",
+], provider);
+const { tick } = await pool.slot0();
+
+const span = Math.abs(Number(ceil) - Number(start)) || 1;
+const progress = Math.min(1, Math.abs(Number(tick) - Number(start)) / span); // 0 … 1
+```
+
+## Graduate & dev controls
+
+```js
+const curve = new ethers.Contract(curveAddr, [
+  "function ready() view returns (bool)",
+  "function graduate()",
+  "function setGradTarget(int24 targetTick)",
+], signer);
+
+// Anyone can graduate once ready() — this is the "Graduate" button / a keeper bot.
+if (await curve.ready()) await (await curve.graduate()).wait();
+
+// Creator only: move the auto-graduate price. Lower = graduate sooner;
+// higher = ride longer for a bigger raise + thicker floor.
+await (await curve.setGradTarget(targetTick)).wait();
+
+// Creator only: collect your escrowed sell fees — or buy + burn with them.
+const router = new ethers.Contract(ROUTER, [
+  "function withdrawDev(address)", "function burnDev(address)",
+], signer);
+await (await router.withdrawDev(token)).wait();
+```

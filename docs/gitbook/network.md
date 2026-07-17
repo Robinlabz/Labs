@@ -1,0 +1,34 @@
+# Network & Addresses
+
+## Robinhood Chain
+
+| Key | Value |
+|-----|-------|
+| Chain | Robinhood Chain (Arbitrum Orbit L2, EVM) |
+| Chain ID | `4663` (`0x1237`) |
+| Currency | ETH (18 decimals) |
+| Public RPC | `https://robinhoodchain.blockscout.com/api/eth-rpc` |
+| Explorer | `https://robinhoodchain.blockscout.com` |
+| Per-tx gas cap | `16,777,216` (2²⁴) — relevant if you batch calls |
+
+## Contract addresses (live)
+
+| Contract | Address | Role |
+|----------|---------|------|
+| `CurvePadFactory` | `0xc208e393990B6f2BC8D0d330E0be38C6eCA1e25B` | One-call launch entrypoint |
+| `PadRouter` | `0x1988dEFfE3799Fb56F949ffb20C65D20c1547570` | The swap desk — every buy/sell goes through it |
+| `WETH` | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` | Canonical wrapped ETH |
+| `UniswapV3Factory` | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | The real v3 factory each pool is created on |
+
+`CurvePool` and `Bond` addresses are **per-coin** — you get them from the factory's `Launched` event or `recordOf(token)`, and from `router.bondOf(token)`.
+
+## Constants
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| Total supply | `1,000,000,000` | Fixed for every coin (18 decimals) |
+| Pool fee tier | `10000` | 1% — the base fee, collected as Uniswap LP fees |
+| Base fee | `100` bps | Mandatory 1% per side |
+| Max fee per side | `400` bps | A creator may raise a side up to 4% |
+| Max opening dev buy | `200` bps | 2% of supply, anti-snipe |
+| Graduation reward | `2500` bps | 25% of the raise, paid to the creator |

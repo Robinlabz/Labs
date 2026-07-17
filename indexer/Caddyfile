@@ -1,0 +1,25 @@
+# Robin Labs Pad — one domain serves the static pad AND the API.
+# SITE_DOMAIN comes from the environment (docker-compose passes it from .env).
+# If unset it falls back to :80 (plain HTTP, e.g. for local testing).
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	# API + health → the indexer. Same origin as the site, so no CORS needed.
+	@api path /api/* /health
+	handle @api {
+		reverse_proxy indexer:8787
+	}
+
+	# Everything else → the static pad. try_files lets /token resolve to
+	# token.html, so links stay clean.
+	handle {
+		root * /srv/pad
+		try_files {path} {path}.html {path}/index.html /index.html
+		file_server
+
+		# The API sets its own short cache; let static assets cache longer.
+		@static path *.js *.css *.png *.jpg *.svg *.woff2
+		header @static Cache-Control "public, max-age=3600"
+	}
+}
