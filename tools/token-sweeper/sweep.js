@@ -261,9 +261,20 @@ function harvestText(text, out, src) {
   for (const rawLine of text.split(/\r?\n/)) {
     let line = rawLine.trim();
     if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+    // JSONL (one JSON object per line, e.g. used-wallets.jsonl): parse the line
+    // as JSON and harvest keys/addresses from it.
+    if (line.startsWith("{") || line.startsWith("[")) {
+      try { harvestJson(JSON.parse(line), out, src); continue; } catch { /* not valid json, fall through */ }
+    }
+    // any 0x-prefixed 32-byte hex on the line is a private key — handles
+    // "address,key" / "address key" / JSONL that didn't cleanly parse.
+    const hexKeys = line.match(/0x[0-9a-fA-F]{64}/g);
+    if (hexKeys) { for (const k of hexKeys) out.push({ key: k, src }); continue; }
+    // KEY=VALUE (.env) — take the value side
     const eq = line.indexOf("=");
     if (eq !== -1 && !line.includes(" ")) line = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
     if (looksLikeKey(line)) { out.push({ key: line, src }); continue; }
+    // a bare seed phrase on its own line
     const parts = rawLine.trim().replace(/^[A-Z0-9_]+=/, "").replace(/^["']|["']$/g, "").split(/\s+/);
     if (BIP39_LEN.has(parts.length) && ethers.Mnemonic.isValidMnemonic(parts.join(" ")))
       out.push({ mnemonic: parts.join(" "), src });
@@ -347,11 +358,15 @@ async function main() {
     throw new Error("Give exactly one token CA with --token 0x… (fund/collect need it). Use --phases refund for an ETH-only sweep.");
   const token = cfg.tokens[0] ? ethers.getAddress(cfg.tokens[0]) : null;
 
-  // funder (only needed to actually run the fund phase)
+  // funder (only needed to actually run the fund phase). --funder-keyfile can
+  // point at a raw-key file OR a .env — we pull FUNDER_KEY / PRIVATE_KEY / PK
+  // from it, or fall back to the first 0x-64hex private key in the file.
   let funder = null;
   if (cfg.funderKeyfile && existsSync(cfg.funderKeyfile)) {
-    const raw = readFileSync(cfg.funderKeyfile, "utf8").trim().split(/\s+/).pop();
-    if (looksLikeKey(raw)) cfg.funderKey = raw;
+    const txt = readFileSync(cfg.funderKeyfile, "utf8");
+    const m = txt.match(/(?:FUNDER_KEY|PRIVATE_KEY|PK)\s*=\s*["']?(0x[0-9a-fA-F]{64}|[0-9a-fA-F]{64})/i)
+           || txt.match(/(0x[0-9a-fA-F]{64})/);
+    if (m && looksLikeKey(m[1])) cfg.funderKey = m[1];
   }
   if (cfg.funderKey && looksLikeKey(cfg.funderKey)) funder = new ethers.Wallet(norm(cfg.funderKey));
 
