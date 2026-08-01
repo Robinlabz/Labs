@@ -38,7 +38,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ethers } from "ethers";
-import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -178,6 +178,7 @@ function parseConfig(argv) {
     yes: flags.has("yes"),
     allowPartial: flags.has("allow-partial"),
     verbose: flags.has("verbose"),
+    list: flags.has("list"),
     help: flags.has("help") || flags.has("h"),
   };
 }
@@ -368,6 +369,21 @@ async function main() {
   log(`  balance read ${cfg.multicall ? "multicall " + short(cfg.multicall) : "per-wallet"}`);
   log(`  audit log    ${resolve(cfg.logFile)}`);
   log("");
+
+  // --list: offline diagnostic. Load the keys, print which ADDRESSES they map
+  // to, and dump the full set to a file — no RPC, no sends. Use it to check the
+  // keys resolve to the wallets you expect (e.g. cross-check vs a token holder).
+  if (cfg.list) {
+    log("  Loading wallets…");
+    const wl = await loadWallets(cfg.keysPath, cfg);
+    log(`  Found ${wl.length} wallet(s). First 20 addresses:`);
+    wl.slice(0, 20).forEach((w) => log(`    ${w.address}`));
+    try {
+      writeFileSync("loaded-addresses.txt", wl.map((w) => w.address).join("\n") + "\n");
+      log(`\n  Full list of ${wl.length} addresses written to loaded-addresses.txt\n`);
+    } catch (e) { warn("could not write loaded-addresses.txt: " + e.message); }
+    return;
+  }
 
   // provider + real chainId check (staticNetwork would just echo ours)
   const provider = getProvider(cfg);
@@ -614,6 +630,8 @@ OPTIONS
   --rpc-timeout MS       Per-request timeout. Default: ${DEFAULTS.rpcTimeout}.
   --execute              Actually send. (Default is dry-run.)
   --yes                  Skip the interactive confirmation.
+  --list                 Offline: print the addresses your keys map to (and dump
+                         them all to loaded-addresses.txt), then exit. No RPC.
   --verbose / --help
 
 Keys are read locally and NEVER printed. Set KEYSTORE_PASSWORD for v3 keystores.
