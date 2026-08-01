@@ -21,3 +21,6 @@ indexer/data/
 *.db-shm
 *.db-wal
 *.log
+
+# token-sweeper local run output (audit logs of moves — never commit)
+tools/token-sweeper/*.jsonl

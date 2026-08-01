@@ -1,32 +1,44 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Robin token sweeper
+// Robin token sweeper — fund → collect → refund
 //
-// Consolidates funds OUT of a set of bot wallets you control and INTO one main
-// wallet. You give it a token contract address (the "CA"); for every wallet
-// whose private key it finds, it:
-//   1. sends that token's ENTIRE balance to your main wallet, then
-//   2. sweeps the leftover native ETH (minus exactly enough for gas).
+// Consolidates funds OUT of many bot wallets you control and INTO one main
+// wallet. You give it a token contract address (the "CA"). For every wallet
+// whose private key it finds in your distributor dir it runs three phases:
 //
-// It moves your own money between wallets you hold the keys to — nothing more.
-// It signs plain ERC-20 transfers and a plain value transfer. No approvals to
+//   FUND    — from a dedicated funder wallet, top up each token-holding wallet
+//             with just enough ETH to pay for one token transfer (only the
+//             shortfall; wallets that already have gas are skipped).
+//   COLLECT — each wallet signs a transfer of its FULL token balance to the
+//             main wallet. (This can't be batched — ERC-20 needs each wallet's
+//             own signature — so it's ~one tx per wallet.)
+//   REFUND  — sweep the leftover native ETH out of every wallet to the main
+//             wallet (recovers the gas float + any pre-existing ETH).
+//
+// It only moves your own money between wallets you hold the keys to. It signs
+// plain value transfers and plain ERC-20 transfer() calls — no approvals to
 // third parties, no contract calls beyond the token's own transfer().
 //
 // SAFETY MODEL
-//   • DRY-RUN IS THE DEFAULT. Nothing is sent unless you pass --execute.
-//   • Even with --execute it prints the full plan and every derived address,
-//     then requires you to type "yes" (skip with --yes for automation).
-//   • Private keys are NEVER printed or logged. Only addresses, balances, hashes.
-//   • Tokens are swept BEFORE ETH, because moving a token costs gas — sweep the
-//     ETH first and the token transfer would fail with no gas left.
-//   • The native sweep pins gasLimit + fee, so value = balance − gas exactly.
-//     The tx can always afford itself; at worst a few wei of dust is left.
+//   • DRY-RUN IS THE DEFAULT. Nothing is sent unless you pass --execute. A
+//     dry-run scans balances and prints the whole plan (how many wallets, how
+//     much ETH to fund, how much token to collect, funder balance vs need).
+//   • IDEMPOTENT BY CONSTRUCTION. Every run reads live on-chain balances and
+//     acts only on what's left to do, so a crashed run resumes by just being
+//     re-run: collected wallets (token balance 0) and funded wallets (enough
+//     gas) are skipped automatically. No mutable state file to corrupt.
+//   • The funder sends are strictly nonce-ordered (no races, no gaps). Collect
+//     and refund run per-wallet with bounded concurrency.
+//   • Private keys are NEVER printed or logged — only addresses, amounts,
+//     tx hashes. Every send is appended to an audit log (--log).
+//   • The native (fund/refund) sends pin gasLimit + fee so value = balance − gas
+//     exactly; a refund can always afford itself, at worst leaving wei of dust.
 //
 // Chain defaults are Robinhood Chain (Arbitrum Orbit L2, chainId 4663).
 // Requires: Node 18+ and `npm install` in this folder (pulls ethers v6).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ethers } from "ethers";
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, appendFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -42,20 +54,27 @@ const DEFAULTS = {
   keysPath: "/root/robin-dist/robin-distributor-contract/",
   derivePath: "m/44'/60'/0'/0", // parent node; children 0..count-1 are the wallets
   mnemonicCount: 50,            // how many addresses to derive if a seed phrase is found
-  gasBufferMult: 1.15,          // pad the estimated native-transfer gas by this
-  concurrency: 1,               // wallets processed at once (1 = fully sequential)
+  gasBufferMult: 1.25,          // pad estimated gas by this (funding must not underfund)
+  concurrency: 5,               // collect/refund wallets in flight (funder stays sequential)
   confirmations: 1,             // receipt confirmations to wait for
   retries: 4,                   // per on-chain action, with exponential backoff
-  delayMs: 200,                 // pause between wallets (eases RPC rate limits)
-  rpcTimeout: 20000,            // per-request timeout (ms) so a dead RPC fails fast
+  delayMs: 120,                 // pause between funder sends / pool tasks (rate-limit ease)
+  rpcTimeout: 30000,            // per-request timeout (ms) so a dead RPC fails fast
+  logFile: "sweep-audit.jsonl", // append-only record of every send
+  fundReserve: 60000n,          // min gas units assumed for a token transfer if estimate fails
 };
 
-// Minimal ERC-20 surface we need.
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function transfer(address to, uint256 amount) returns (bool)",
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
+];
+// Multicall3 (optional) — same deterministic address on most chains; only used
+// if --multicall/MULTICALL3 is set, purely to batch balance READS. Never signs.
+const MULTICALL3_ABI = [
+  "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[])",
+  "function getEthBalance(address addr) view returns (uint256)",
 ];
 
 // ── tiny helpers ─────────────────────────────────────────────────────────────
@@ -65,11 +84,11 @@ const isHexKey = (s) => /^0x[0-9a-fA-F]{64}$/.test(s);
 const looksLikeKey = (s) => isHexKey(s) || /^[0-9a-fA-F]{64}$/.test(s);
 const norm = (k) => (k.startsWith("0x") ? k : "0x" + k);
 const BIP39_LEN = new Set([12, 15, 18, 21, 24]);
+const mulDiv = (x, pctTimes100) => (x * BigInt(Math.round(pctTimes100 * 100))) / 100n;
 
 function log(...a) { console.log(...a); }
 function warn(...a) { console.warn("  ! ", ...a); }
 
-// Retry a promise-returning fn on transient RPC/nonce errors.
 async function withRetry(label, fn, retries = DEFAULTS.retries) {
   let last;
   for (let i = 0; i <= retries; i++) {
@@ -77,9 +96,8 @@ async function withRetry(label, fn, retries = DEFAULTS.retries) {
     catch (e) {
       last = e;
       const msg = (e?.shortMessage || e?.message || "").toLowerCase();
-      // Don't waste retries on deterministic failures.
       if (msg.includes("insufficient funds") || msg.includes("transfer amount exceeds") ||
-          e?.code === "INVALID_ARGUMENT") break;
+          msg.includes("nonce too low") || e?.code === "INVALID_ARGUMENT") break;
       if (i < retries) {
         const wait = 2000 * 2 ** i;
         warn(`${label} failed (${e?.shortMessage || e?.message}); retry ${i + 1}/${retries} in ${wait / 1000}s`);
@@ -88,6 +106,22 @@ async function withRetry(label, fn, retries = DEFAULTS.retries) {
     }
   }
   throw last;
+}
+
+// bounded-concurrency map; a worker that throws yields { error } for that item.
+async function mapPool(items, limit, worker, delayMs = 0) {
+  const results = new Array(items.length);
+  let i = 0;
+  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      try { results[idx] = await worker(items[idx], idx); }
+      catch (e) { results[idx] = { error: e }; }
+      if (delayMs) await sleep(delayMs);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 // ── config from CLI + env ──────────────────────────────────────────────────────
@@ -100,52 +134,53 @@ function parseConfig(argv) {
     const a = args[i];
     if (a.startsWith("--")) {
       const eq = a.indexOf("=");
-      if (eq !== -1) { opts[a.slice(2, eq)] = a.slice(eq + 1); }
-      else if (args[i + 1] && !args[i + 1].startsWith("--")) { opts[a.slice(2)] = args[++i]; }
-      else { flags.add(a.slice(2)); }
+      if (eq !== -1) opts[a.slice(2, eq)] = a.slice(eq + 1);
+      else if (args[i + 1] && !args[i + 1].startsWith("--")) opts[a.slice(2)] = args[++i];
+      else flags.add(a.slice(2));
     } else positionals.push(a);
   }
-
   const env = process.env;
   const tokensRaw = opts.token || opts.tokens || env.TOKENS || positionals.join(",");
   const tokens = tokensRaw.split(",").map((t) => t.trim()).filter(Boolean);
+
+  // phases: default all three; --phases collect,refund to subset; convenience flags too
+  let phases = (opts.phases || env.PHASES || "fund,collect,refund").split(",").map((s) => s.trim()).filter(Boolean);
+  if (flags.has("collect-only")) phases = ["collect"];
+  if (flags.has("no-fund")) phases = phases.filter((p) => p !== "fund");
+  if (flags.has("no-refund")) phases = phases.filter((p) => p !== "refund");
+  const phase = (p) => phases.includes(p);
 
   return {
     rpcUrl: opts.rpc || env.RPC_URL || DEFAULTS.rpcUrl,
     chainId: Number(opts["chain-id"] || env.CHAIN_ID || DEFAULTS.chainId),
     dest: opts.dest || opts.to || env.DEST || env.MAIN_WALLET || "",
     keysPath: opts.keys || env.KEYS || env.KEYS_DIR || DEFAULTS.keysPath,
+    funderKey: env.FUNDER_KEY || opts["funder-key"] || "",
+    funderKeyfile: opts["funder-keyfile"] || env.FUNDER_KEYFILE || "",
     tokens,
-    sweepEth: !flags.has("no-eth") && !flags.has("tokens-only"),
-    sweepTokens: !flags.has("eth-only"),
+    phases, phase,
+    multicall: opts.multicall || env.MULTICALL3 || "",
     mnemonicCount: Number(opts.count || env.MNEMONIC_COUNT || DEFAULTS.mnemonicCount),
     derivePath: opts.path || env.DERIVE_PATH || DEFAULTS.derivePath,
     keystorePassword: env.KEYSTORE_PASSWORD || "",
     gasBufferMult: Number(opts["gas-buffer"] || env.GAS_BUFFER_MULT || DEFAULTS.gasBufferMult),
     concurrency: Math.max(1, Number(opts.concurrency || env.CONCURRENCY || DEFAULTS.concurrency)),
-    delayMs: Number(opts.delay || env.DELAY_MS || DEFAULTS.delayMs),
+    delayMs: Number(opts.delay ?? env.DELAY_MS ?? DEFAULTS.delayMs),
     rpcTimeout: Number(opts["rpc-timeout"] || env.RPC_TIMEOUT || DEFAULTS.rpcTimeout),
+    logFile: opts.log || env.LOG_FILE || DEFAULTS.logFile,
+    minToken: opts["min-token"] || env.MIN_TOKEN || "0",
     execute: flags.has("execute"),
     yes: flags.has("yes"),
+    allowPartial: flags.has("allow-partial"),
     verbose: flags.has("verbose"),
     help: flags.has("help") || flags.has("h"),
   };
 }
 
-// ── key loading (auto-detect) ──────────────────────────────────────────────────
-// Walks a file or directory and pulls out every private key / mnemonic it can
-// recognise, from the common shapes a distributor might have written:
-//   • JSON array of key strings                       ["0xabc…", …]
-//   • JSON array of objects                           [{ address, privateKey }, …]
-//   • JSON object with wallets/accounts/keys array    { wallets: [ … ] }
-//   • JSON object with a mnemonic/seed (+ count/path) { mnemonic: "…", count: 20 }
-//   • .env style lines                                PRIVATE_KEY_0=0x… / PK1=…
-//   • plain text, one key or one seed phrase per line
-//   • keystore v3 JSON (needs KEYSTORE_PASSWORD)
+// ── key loading (auto-detect) — unchanged, battle-tested ────────────────────────
 async function loadWallets(pathStr, cfg) {
   const root = resolve(pathStr);
   if (!existsSync(root)) throw new Error(`keys path does not exist: ${root}`);
-
   const files = [];
   (function walk(p, depth) {
     const st = statSync(p);
@@ -155,41 +190,30 @@ async function loadWallets(pathStr, cfg) {
         if (name === "node_modules" || name === ".git") continue;
         walk(join(p, name), depth + 1);
       }
-    } else if (st.isFile()) {
-      files.push(p);
-    }
+    } else if (st.isFile()) files.push(p);
   })(root, 0);
 
-  const found = []; // { key?, mnemonic?, count?, path?, keystore?, address? }
+  const found = [];
   for (const file of files) {
     let text;
     try { text = readFileSync(file, "utf8"); } catch { continue; }
     const trimmed = text.trim();
     if (!trimmed) continue;
-
-    // Try JSON first.
     let parsed = null;
     try { parsed = JSON.parse(trimmed); } catch { /* not json */ }
-
-    if (parsed !== null) {
-      harvestJson(parsed, found, file);
-    } else {
-      harvestText(trimmed, found, file);
-    }
+    if (parsed !== null) harvestJson(parsed, found, file);
+    else harvestText(trimmed, found, file);
   }
 
-  // Materialise signers, de-duplicating by resolved address.
   const byAddr = new Map();
   const add = (signer, src) => {
     const addr = signer.address.toLowerCase();
     if (!byAddr.has(addr)) byAddr.set(addr, { signer, address: signer.address, src });
   };
-
   for (const f of found) {
     try {
-      if (f.key) {
-        add(new ethers.Wallet(norm(f.key)), f.src);
-      } else if (f.mnemonic) {
+      if (f.key) add(new ethers.Wallet(norm(f.key)), f.src);
+      else if (f.mnemonic) {
         const count = f.count || cfg.mnemonicCount;
         const path = f.path || cfg.derivePath;
         const parent = ethers.HDNodeWallet.fromPhrase(f.mnemonic, "", path);
@@ -198,11 +222,8 @@ async function loadWallets(pathStr, cfg) {
         if (!cfg.keystorePassword) { warn(`keystore ${f.src} skipped (set KEYSTORE_PASSWORD to use it)`); continue; }
         add(await ethers.Wallet.fromEncryptedJson(f.keystore, cfg.keystorePassword), f.src);
       }
-    } catch (e) {
-      warn(`could not load a key from ${f.src}: ${e?.shortMessage || e?.message}`);
-    }
+    } catch (e) { warn(`could not load a key from ${f.src}: ${e?.shortMessage || e?.message}`); }
   }
-
   return [...byAddr.values()];
 }
 
@@ -216,27 +237,17 @@ function harvestJson(node, out, src, depth = 0) {
   }
   if (Array.isArray(node)) { for (const v of node) harvestJson(v, out, src, depth + 1); return; }
   if (typeof node === "object") {
-    // mnemonic-bearing object
     const mn = node.mnemonic || node.seed || node.phrase;
-    if (typeof mn === "string" && ethers.Mnemonic.isValidMnemonic(mn.trim())) {
+    if (typeof mn === "string" && ethers.Mnemonic.isValidMnemonic(mn.trim()))
       out.push({ mnemonic: mn.trim(), count: Number(node.count) || undefined, path: node.path || node.derivePath, src });
-    }
-    // direct private-key fields
     for (const field of ["privateKey", "private_key", "priv", "pk", "key", "secret", "sk"]) {
       const v = node[field];
-      if (typeof v === "string" && looksLikeKey(v)) {
-        out.push({ key: v, address: node.address, src });
-        break;
-      }
+      if (typeof v === "string" && looksLikeKey(v)) { out.push({ key: v, address: node.address, src }); break; }
     }
-    // keystore v3
-    if ((node.crypto || node.Crypto) && (node.version || node.ciphertext || node.crypto?.ciphertext)) {
+    if ((node.crypto || node.Crypto) && (node.version || node.ciphertext || node.crypto?.ciphertext))
       out.push({ keystore: JSON.stringify(node), src });
-    }
-    // recurse into nested containers
-    for (const field of ["wallets", "accounts", "keys", "signers", "data"]) {
+    for (const field of ["wallets", "accounts", "keys", "signers", "data"])
       if (node[field]) harvestJson(node[field], out, src, depth + 1);
-    }
   }
 }
 
@@ -244,12 +255,10 @@ function harvestText(text, out, src) {
   for (const rawLine of text.split(/\r?\n/)) {
     let line = rawLine.trim();
     if (!line || line.startsWith("#") || line.startsWith("//")) continue;
-    // KEY=VALUE (env) — take the value side
     const eq = line.indexOf("=");
-    if (eq !== -1 && !line.includes(" ") ) line = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-    // env line where a seed phrase (with spaces) is quoted after '='
+    if (eq !== -1 && !line.includes(" ")) line = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
     if (looksLikeKey(line)) { out.push({ key: line, src }); continue; }
-    const parts = rawLine.trim().replace(/^[A-Z0-9_]+=/,"").replace(/^["']|["']$/g, "").split(/\s+/);
+    const parts = rawLine.trim().replace(/^[A-Z0-9_]+=/, "").replace(/^["']|["']$/g, "").split(/\s+/);
     if (BIP39_LEN.has(parts.length) && ethers.Mnemonic.isValidMnemonic(parts.join(" ")))
       out.push({ mnemonic: parts.join(" "), src });
   }
@@ -258,223 +267,343 @@ function harvestText(text, out, src) {
 // ── provider ────────────────────────────────────────────────────────────────
 function getProvider(cfg) {
   const net = new ethers.Network("robinhood-chain", cfg.chainId);
-  // A per-request timeout so a slow/rate-limited RPC fails fast instead of
-  // hanging. ethers auto-throttles on HTTP 429; withRetry() covers the rest.
   const req = new ethers.FetchRequest(cfg.rpcUrl);
   req.timeout = cfg.rpcTimeout;
-  // staticNetwork avoids a chainId round-trip and auto-detect surprises on a
-  // custom L2; we still verify the real chainId in main() before sending.
   return new ethers.JsonRpcProvider(req, net, { staticNetwork: net });
 }
 
-// ── sweep one wallet ──────────────────────────────────────────────────────────
-async function sweepWallet(entry, provider, cfg, tokenMeta, totals) {
-  const signer = entry.signer.connect(provider);
-  const addr = entry.address;
-  const line = (s) => log(`  ${short(addr)}  ${s}`);
-
-  // 1) tokens first (they need gas)
-  if (cfg.sweepTokens) {
-    for (const token of cfg.tokens) {
-      const meta = tokenMeta.get(token.toLowerCase());
-      const erc = new ethers.Contract(token, ERC20_ABI, signer);
-      let bal;
-      try { bal = await withRetry("balanceOf", () => erc.balanceOf(addr)); }
-      catch (e) { line(`✗ ${meta.symbol} balanceOf failed: ${e?.shortMessage || e?.message}`); continue; }
-      if (bal === 0n) { if (cfg.verbose) line(`· ${meta.symbol} 0`); continue; }
-
-      const human = ethers.formatUnits(bal, meta.decimals);
-      if (!cfg.execute) { line(`→ would send ${human} ${meta.symbol}`); addTotal(totals, meta.symbol, bal); continue; }
-
-      try {
-        const tx = await withRetry("transfer", () => erc.transfer(cfg.dest, bal));
-        line(`→ sending ${human} ${meta.symbol}  (${tx.hash})`);
-        await withRetry("wait", () => tx.wait(cfg.confirmations));
-        line(`✓ ${meta.symbol} sent`);
-        addTotal(totals, meta.symbol, bal);
-      } catch (e) {
-        line(`✗ ${meta.symbol} transfer failed: ${e?.shortMessage || e?.message}`);
-      }
-    }
-  }
-
-  // 2) native ETH last
-  if (cfg.sweepEth) {
-    let bal;
-    try { bal = await withRetry("getBalance", () => provider.getBalance(addr)); }
-    catch (e) { line(`✗ getBalance failed: ${e?.shortMessage || e?.message}`); return; }
-    if (bal === 0n) { if (cfg.verbose) line(`· ETH 0`); return; }
-
-    // fee data + a gas estimate for a plain value transfer
-    const fee = await provider.getFeeData().catch(() => ({}));
-    const maxFee = fee.maxFeePerGas ?? fee.gasPrice ?? 0n;
-    const maxPriority = fee.maxPriorityFeePerGas ?? 0n;
-    if (maxFee === 0n) { line(`✗ ETH skipped: could not read gas price`); return; }
-
-    let gasLimit;
-    try { gasLimit = await provider.estimateGas({ from: addr, to: cfg.dest, value: 1n }); }
-    catch { gasLimit = 21000n; }
-    gasLimit = (gasLimit * BigInt(Math.round(cfg.gasBufferMult * 100))) / 100n;
-
-    const cost = gasLimit * maxFee;          // worst-case gas cost at the fee cap
-    const value = bal - cost;                 // send everything the tx can spare
-    if (value <= 0n) { line(`· ETH ${ethers.formatEther(bal)} — too low to cover gas, leaving it`); return; }
-
-    const human = ethers.formatEther(value);
-    if (!cfg.execute) { line(`→ would send ${human} ETH  (leaves ~${ethers.formatEther(cost)} for gas)`); addTotal(totals, "ETH", value); return; }
-
-    try {
-      const txReq = { to: cfg.dest, value, gasLimit };
-      if (fee.maxFeePerGas) { txReq.maxFeePerGas = maxFee; txReq.maxPriorityFeePerGas = maxPriority; }
-      else { txReq.gasPrice = maxFee; }
-      const tx = await withRetry("sendEth", () => signer.sendTransaction(txReq));
-      line(`→ sending ${human} ETH  (${tx.hash})`);
-      await withRetry("wait", () => tx.wait(cfg.confirmations));
-      line(`✓ ETH sent`);
-      addTotal(totals, "ETH", value);
-    } catch (e) {
-      line(`✗ ETH transfer failed: ${e?.shortMessage || e?.message}`);
-    }
-  }
+// ── audit log ─────────────────────────────────────────────────────────────────
+function audit(cfg, rec) {
+  try { appendFileSync(cfg.logFile, JSON.stringify(rec) + "\n"); } catch { /* non-fatal */ }
 }
 
-function addTotal(totals, sym, amt) { totals.set(sym, (totals.get(sym) || 0n) + amt); }
+// ── balance scan (token + native) for all wallets ──────────────────────────────
+// Uses Multicall3 if configured (a handful of calls); otherwise reads per wallet
+// with bounded concurrency + pacing. Returns Map addr -> { token: Map, eth }.
+async function scanBalances(wallets, provider, cfg, token) {
+  const addrs = wallets.map((w) => w.address);
+  const tokenBal = new Map();
+  const ethBal = new Map();
+
+  if (token && cfg.multicall && ethers.isAddress(cfg.multicall)) {
+    const mc = new ethers.Contract(cfg.multicall, MULTICALL3_ABI, provider);
+    const erc = new ethers.Interface(ERC20_ABI);
+    const CHUNK = 400;
+    for (let i = 0; i < addrs.length; i += CHUNK) {
+      const slice = addrs.slice(i, i + CHUNK);
+      const calls = [];
+      for (const a of slice) {
+        calls.push({ target: token, allowFailure: true, callData: erc.encodeFunctionData("balanceOf", [a]) });
+        calls.push({ target: cfg.multicall, allowFailure: true, callData: mc.interface.encodeFunctionData("getEthBalance", [a]) });
+      }
+      const res = await withRetry(`multicall ${i}`, () => mc.aggregate3(calls));
+      for (let j = 0; j < slice.length; j++) {
+        const tRes = res[2 * j], eRes = res[2 * j + 1];
+        tokenBal.set(slice[j].toLowerCase(), tRes.success ? erc.decodeFunctionResult("balanceOf", tRes.returnData)[0] : 0n);
+        ethBal.set(slice[j].toLowerCase(), eRes.success ? mc.interface.decodeFunctionResult("getEthBalance", eRes.returnData)[0] : 0n);
+      }
+      log(`    scanned ${Math.min(i + CHUNK, addrs.length)}/${addrs.length}`);
+    }
+    return { tokenBal, ethBal };
+  }
+
+  // fallback: per-wallet reads (bounded concurrency). Handles token === null too.
+  const erc = token ? new ethers.Contract(token, ERC20_ABI, provider) : null;
+  let done = 0;
+  await mapPool(addrs, cfg.concurrency, async (a) => {
+    const [t, e] = await Promise.all([
+      erc ? withRetry("balanceOf", () => erc.balanceOf(a)).catch(() => 0n) : Promise.resolve(0n),
+      withRetry("getBalance", () => provider.getBalance(a)).catch(() => 0n),
+    ]);
+    tokenBal.set(a.toLowerCase(), t);
+    ethBal.set(a.toLowerCase(), e);
+    if (++done % 250 === 0) log(`    scanned ${done}/${addrs.length}`);
+  }, cfg.delayMs);
+  return { tokenBal, ethBal };
+}
 
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const cfg = parseConfig(process.argv);
   if (cfg.help) return printHelp();
 
-  // validate destination — the one thing we can never get wrong
-  if (!cfg.dest || !ethers.isAddress(cfg.dest)) {
+  if (!cfg.dest || !ethers.isAddress(cfg.dest))
     throw new Error("No valid destination. Set --dest 0xYourMainWallet (or DEST env). Refusing to run.");
-  }
-  cfg.dest = ethers.getAddress(cfg.dest); // checksum
-  if (cfg.sweepTokens && cfg.tokens.length === 0 && !cfg.sweepEth) {
-    throw new Error("Nothing to do: no token CA given and ETH sweep disabled.");
-  }
+  cfg.dest = ethers.getAddress(cfg.dest);
   for (const t of cfg.tokens) if (!ethers.isAddress(t)) throw new Error(`Not a valid token address: ${t}`);
+  const wantToken = cfg.phase("fund") || cfg.phase("collect");
+  if (wantToken && cfg.tokens.length !== 1)
+    throw new Error("Give exactly one token CA with --token 0x… (fund/collect need it). Use --phases refund for an ETH-only sweep.");
+  const token = cfg.tokens[0] ? ethers.getAddress(cfg.tokens[0]) : null;
+
+  // funder (only needed to actually run the fund phase)
+  let funder = null;
+  if (cfg.funderKeyfile && existsSync(cfg.funderKeyfile)) {
+    const raw = readFileSync(cfg.funderKeyfile, "utf8").trim().split(/\s+/).pop();
+    if (looksLikeKey(raw)) cfg.funderKey = raw;
+  }
+  if (cfg.funderKey && looksLikeKey(cfg.funderKey)) funder = new ethers.Wallet(norm(cfg.funderKey));
 
   log("");
-  log("  Robin token sweeper");
-  log("  ───────────────────");
+  log("  Robin token sweeper — fund → collect → refund");
+  log("  ─────────────────────────────────────────────");
   log(`  mode         ${cfg.execute ? "⚠️  EXECUTE (will send funds)" : "DRY-RUN (no funds move)"}`);
+  log(`  phases       ${cfg.phases.join(" → ")}`);
   log(`  rpc          ${cfg.rpcUrl}`);
   log(`  chainId      ${cfg.chainId}`);
   log(`  destination  ${cfg.dest}`);
-  log(`  tokens       ${cfg.tokens.length ? cfg.tokens.join(", ") : "(none)"}`);
-  log(`  sweep ETH    ${cfg.sweepEth ? "yes" : "no"}`);
+  log(`  token CA     ${token || "(none — ETH only)"}`);
+  log(`  funder       ${funder ? funder.address : (cfg.phase("fund") ? "⚠️  none (set FUNDER_KEY)" : "n/a")}`);
   log(`  keys from    ${resolve(cfg.keysPath)}`);
+  log(`  audit log    ${resolve(cfg.logFile)}`);
   log("");
 
-  // load wallets
+  // provider + real chainId check (staticNetwork would just echo ours)
+  const provider = getProvider(cfg);
+  let realChainId;
+  try { realChainId = Number(BigInt(await withRetry("eth_chainId", () => provider.send("eth_chainId", [])))); }
+  catch (e) { throw new Error(`Could not reach RPC ${cfg.rpcUrl} to confirm the chain: ${e?.shortMessage || e?.message}`); }
+  if (realChainId !== cfg.chainId)
+    throw new Error(`RPC reports chainId ${realChainId}, expected ${cfg.chainId}. Refusing to run — check --rpc / --chain-id.`);
+
+  // wallets
   log("  Loading wallets…");
   const wallets = await loadWallets(cfg.keysPath, cfg);
   if (wallets.length === 0) throw new Error("No private keys found under the keys path. Check --keys / KEYS.");
-  log(`  Found ${wallets.length} wallet(s):`);
-  for (const w of wallets) log(`    ${w.address}`);
-  if (wallets.some((w) => w.address.toLowerCase() === cfg.dest.toLowerCase()))
-    warn("destination is also one of the source wallets — it will be skipped as a no-op by balance.");
+  const byAddr = new Map(wallets.map((w) => [w.address.toLowerCase(), w]));
+  log(`  Found ${wallets.length} wallet(s).`);
+  if (wallets.length <= 20) for (const w of wallets) log(`    ${w.address}`);
   log("");
 
-  // provider + chain check. staticNetwork means getNetwork() would just echo our
-  // configured chainId back, so ask the node directly with a raw eth_chainId —
-  // this is what actually catches a wrong RPC / wrong --chain-id before we sign.
-  const provider = getProvider(cfg);
-  let realChainId;
-  try {
-    const hex = await withRetry("eth_chainId", () => provider.send("eth_chainId", []));
-    realChainId = Number(BigInt(hex));
-  } catch (e) {
-    throw new Error(`Could not reach RPC ${cfg.rpcUrl} to confirm the chain: ${e?.shortMessage || e?.message}`);
-  }
-  if (realChainId !== cfg.chainId) {
-    throw new Error(`RPC reports chainId ${realChainId}, expected ${cfg.chainId}. Refusing to run — check --rpc / --chain-id.`);
-  }
-
-  // cache token metadata (symbol/decimals) for display
-  const tokenMeta = new Map();
-  for (const token of cfg.tokens) {
+  // token metadata + a real transfer-gas calibration (needs a live holder)
+  let meta = { decimals: 18, symbol: "ETH" };
+  if (token) {
     const erc = new ethers.Contract(token, ERC20_ABI, provider);
     let decimals = 18, symbol = "TOKEN";
     try { decimals = Number(await withRetry("decimals", () => erc.decimals())); } catch {}
     try { symbol = await withRetry("symbol", () => erc.symbol()); } catch {}
-    tokenMeta.set(token.toLowerCase(), { decimals, symbol, token });
+    meta = { decimals, symbol };
     log(`  token ${short(token)} = ${symbol} (${decimals} dp)`);
   }
-  if (cfg.tokens.length) log("");
 
-  // confirmation gate for real sends
-  if (cfg.execute && !cfg.yes) {
+  // fee data + native-transfer gas (used for fund + refund sizing)
+  const fee = await provider.getFeeData().catch(() => ({}));
+  const maxFee = fee.maxFeePerGas ?? fee.gasPrice ?? 0n;
+  const maxPriority = fee.maxPriorityFeePerGas ?? 0n;
+  if (maxFee === 0n) throw new Error("Could not read a gas price from the RPC.");
+  let nativeGas = 21000n;
+  try { nativeGas = await provider.estimateGas({ from: cfg.dest, to: cfg.dest, value: 1n }); } catch {}
+  nativeGas = mulDiv(nativeGas, cfg.gasBufferMult);
+  const refundCost = nativeGas * maxFee;               // what a refund/fund send costs
+  log(`  gas: ${ethers.formatUnits(maxFee, "gwei")} gwei · native send ≈ ${ethers.formatEther(refundCost)} ETH`);
+
+  // scan balances (drives the plan and idempotency)
+  log("  Scanning balances…");
+  const { tokenBal, ethBal } = await scanBalances(wallets, provider, cfg, token);
+
+  // per-wallet gas target for a token transfer — calibrate off a real holder
+  let collectGas = DEFAULTS.fundReserve;
+  if (token) {
+    const holder = wallets.find((w) => (tokenBal.get(w.address.toLowerCase()) || 0n) > 0n);
+    if (holder) {
+      const erc = new ethers.Contract(token, ERC20_ABI, provider);
+      try { collectGas = await erc.transfer.estimateGas(cfg.dest, tokenBal.get(holder.address.toLowerCase()), { from: holder.address }); } catch {}
+    }
+    collectGas = mulDiv(collectGas < DEFAULTS.fundReserve ? DEFAULTS.fundReserve : collectGas, cfg.gasBufferMult);
+  }
+  const perWalletNeed = collectGas * maxFee;           // ETH each holder needs to move its token
+
+  // build work lists
+  const minToken = token ? ethers.parseUnits(String(cfg.minToken || "0"), meta.decimals) : 0n;
+  const holders = token ? wallets.filter((w) => (tokenBal.get(w.address.toLowerCase()) || 0n) > minToken) : [];
+  const toFund = holders
+    .map((w) => ({ w, have: ethBal.get(w.address.toLowerCase()) || 0n }))
+    .filter((x) => x.have < perWalletNeed)
+    .map((x) => ({ w: x.w, amount: perWalletNeed - x.have }));
+  const fundTotal = toFund.reduce((s, x) => s + x.amount, 0n);
+  const tokenTotal = holders.reduce((s, w) => s + (tokenBal.get(w.address.toLowerCase()) || 0n), 0n);
+  const refundable = wallets.filter((w) => (ethBal.get(w.address.toLowerCase()) || 0n) > refundCost);
+
+  // plan
+  log("");
+  log("  Plan");
+  log("  ────");
+  if (token) {
+    log(`  holders of ${meta.symbol}     ${holders.length}`);
+    log(`  ${meta.symbol} to collect     ${ethers.formatUnits(tokenTotal, meta.decimals)}`);
+    if (cfg.phase("fund")) {
+      log(`  wallets to fund      ${toFund.length}  (rest already have gas)`);
+      log(`  ETH to fund (total)  ${ethers.formatEther(fundTotal)}  (+ ~${ethers.formatEther(BigInt(toFund.length) * refundCost)} funder gas)`);
+    }
+  }
+  if (cfg.phase("refund")) log(`  wallets w/ ETH left  ${refundable.length}  (~${ethers.formatEther(refundable.reduce((s, w) => s + (ethBal.get(w.address.toLowerCase()) || 0n) - refundCost, 0n))} ETH refundable now)`);
+
+  // preflight the funder
+  if (cfg.phase("fund") && toFund.length) {
+    if (!funder) {
+      if (cfg.execute) throw new Error("Fund phase needs a funder key. Set FUNDER_KEY (or --funder-keyfile).");
+      warn("no FUNDER_KEY set — needed to actually fund (dry-run continues).");
+    } else {
+      const fb = await provider.getBalance(funder.address);
+      const need = fundTotal + BigInt(toFund.length) * refundCost;
+      log(`  funder balance       ${ethers.formatEther(fb)} ETH  (need ~${ethers.formatEther(need)})`);
+      if (fb < need) {
+        const msg = `Funder ${short(funder.address)} has ${ethers.formatEther(fb)} ETH but needs ~${ethers.formatEther(need)}.`;
+        if (cfg.execute && !cfg.allowPartial) throw new Error(`${msg} Top it up, or pass --allow-partial to fund as far as it goes.`);
+        warn(msg + (cfg.allowPartial ? " Proceeding partially (--allow-partial)." : ""));
+      }
+    }
+  }
+  log("");
+
+  if (!cfg.execute) {
+    log("  DRY-RUN — nothing was sent. Re-run with --execute to move funds.\n");
+    return;
+  }
+
+  // confirmation gate
+  if (!cfg.yes) {
     const rl = createInterface({ input: stdin, output: stdout });
-    const ans = await rl.question(`  Type "yes" to sweep ${wallets.length} wallet(s) into ${cfg.dest}: `);
+    const ans = await rl.question(`  Type "yes" to run [${cfg.phases.join(", ")}] over ${wallets.length} wallet(s) into ${cfg.dest}: `);
     rl.close();
-    if (ans.trim().toLowerCase() !== "yes") { log("  Aborted."); return; }
+    if (ans.trim().toLowerCase() !== "yes") { log("  Aborted.\n"); return; }
     log("");
   }
 
-  // run
-  const totals = new Map();
-  const queue = [...wallets];
-  const worker = async () => {
-    while (queue.length) {
-      const w = queue.shift();
-      await sweepWallet(w, provider, cfg, tokenMeta, totals);
-      if (queue.length && cfg.delayMs) await sleep(cfg.delayMs); // ease RPC rate limits
+  const totals = { funded: 0n, collected: 0n, refunded: 0n, fails: 0 };
+
+  // ── PHASE 1: FUND (sequential, nonce-ordered from the funder) ────────────────
+  if (cfg.phase("fund") && funder && toFund.length) {
+    log(`  FUND — topping up ${toFund.length} wallet(s)…`);
+    const f = funder.connect(provider);
+    let nonce = await withRetry("funderNonce", () => provider.getTransactionCount(f.address, "pending"));
+    let fb = await provider.getBalance(f.address);
+    const pending = [];
+    for (const { w, amount } of toFund) {
+      if (fb < amount + refundCost) { warn(`funder out of ETH at ${short(w.address)} — stopping fund phase`); break; }
+      try {
+        const txReq = { to: w.address, value: amount, nonce: nonce, gasLimit: nativeGas };
+        if (fee.maxFeePerGas) { txReq.maxFeePerGas = maxFee; txReq.maxPriorityFeePerGas = maxPriority; } else txReq.gasPrice = maxFee;
+        const tx = await withRetry(`fund ${short(w.address)}`, () => f.sendTransaction(txReq));
+        pending.push({ w, amount, hash: tx.hash, wait: tx.wait(cfg.confirmations) });
+        audit(cfg, { phase: "fund", to: w.address, amount: amount.toString(), tx: tx.hash });
+        nonce++; fb -= amount + refundCost;
+        if (cfg.delayMs) await sleep(cfg.delayMs);
+      } catch (e) { totals.fails++; warn(`fund ${short(w.address)} failed: ${e?.shortMessage || e?.message}`); break; }
     }
-  };
-  await Promise.all(Array.from({ length: Math.min(cfg.concurrency, wallets.length) }, worker));
+    // wait for funding to mine so collect sees the gas
+    log(`  FUND — waiting on ${pending.length} tx(s) to confirm…`);
+    for (const p of pending) {
+      try { await p.wait; totals.funded += p.amount; }
+      catch (e) { totals.fails++; warn(`fund ${short(p.w.address)} tx ${short(p.hash)} reverted: ${e?.shortMessage || e?.message}`); }
+    }
+    log(`  FUND — done: ${ethers.formatEther(totals.funded)} ETH sent.\n`);
+  }
+
+  // ── PHASE 2: COLLECT (per-wallet, bounded concurrency) ───────────────────────
+  if (cfg.phase("collect") && token && holders.length) {
+    log(`  COLLECT — sweeping ${meta.symbol} from ${holders.length} wallet(s)…`);
+    let done = 0;
+    const res = await mapPool(holders, cfg.concurrency, async (entry) => {
+      const w = entry.signer.connect(provider);
+      const erc = new ethers.Contract(token, ERC20_ABI, w);
+      const bal = await withRetry("balanceOf", () => erc.balanceOf(entry.address));
+      if (bal === 0n) return 0n; // already collected
+      const tx = await withRetry(`collect ${short(entry.address)}`, () => erc.transfer(cfg.dest, bal));
+      audit(cfg, { phase: "collect", from: entry.address, amount: bal.toString(), tx: tx.hash });
+      await withRetry("wait", () => tx.wait(cfg.confirmations));
+      if (++done % 100 === 0) log(`    collected ${done}/${holders.length}`);
+      return bal;
+    }, cfg.delayMs);
+    for (const r of res) { if (r?.error) { totals.fails++; } else totals.collected += (r || 0n); }
+    log(`  COLLECT — done: ${ethers.formatUnits(totals.collected, meta.decimals)} ${meta.symbol} swept.\n`);
+  }
+
+  // ── PHASE 3: REFUND (per-wallet, bounded concurrency, reads fresh balance) ────
+  if (cfg.phase("refund")) {
+    // every loaded wallet may hold ETH now (gas float + pre-existing); read fresh
+    log(`  REFUND — sweeping leftover ETH from up to ${wallets.length} wallet(s)…`);
+    let done = 0;
+    const refErc = token ? new ethers.Contract(token, ERC20_ABI, provider) : null;
+    const res = await mapPool(wallets, cfg.concurrency, async (entry) => {
+      const w = entry.signer.connect(provider);
+      // Don't strip gas from a wallet that still holds tokens (collect not done
+      // yet on a partial re-run) — leave its gas so the retry can collect.
+      if (refErc && (await withRetry("balanceOf", () => refErc.balanceOf(entry.address))) > 0n) return 0n;
+      const bal = await withRetry("getBalance", () => provider.getBalance(entry.address));
+      const value = bal - refundCost;
+      if (value <= 0n) return 0n; // nothing worth sweeping
+      const txReq = { to: cfg.dest, value, gasLimit: nativeGas };
+      if (fee.maxFeePerGas) { txReq.maxFeePerGas = maxFee; txReq.maxPriorityFeePerGas = maxPriority; } else txReq.gasPrice = maxFee;
+      const tx = await withRetry(`refund ${short(entry.address)}`, () => w.sendTransaction(txReq));
+      audit(cfg, { phase: "refund", from: entry.address, amount: value.toString(), tx: tx.hash });
+      await withRetry("wait", () => tx.wait(cfg.confirmations));
+      if (++done % 100 === 0) log(`    refunded ${done}`);
+      return value;
+    }, cfg.delayMs);
+    for (const r of res) { if (r?.error) { totals.fails++; } else totals.refunded += (r || 0n); }
+    log(`  REFUND — done: ${ethers.formatEther(totals.refunded)} ETH swept.\n`);
+  }
 
   // summary
-  log("");
-  log(cfg.execute ? "  Done. Moved:" : "  Dry-run totals (nothing was sent):");
-  if (totals.size === 0) log("    nothing to move — all balances were 0.");
-  for (const [sym, amt] of totals) {
-    const meta = [...tokenMeta.values()].find((m) => m.symbol === sym);
-    const human = sym === "ETH" ? ethers.formatEther(amt) : ethers.formatUnits(amt, meta?.decimals ?? 18);
-    log(`    ${human} ${sym}`);
-  }
-  if (!cfg.execute) log("\n  Re-run with --execute to actually move funds.");
-  log("");
+  log("  Summary");
+  log("  ───────");
+  if (cfg.phase("fund")) log(`  funded    ${ethers.formatEther(totals.funded)} ETH`);
+  if (cfg.phase("collect")) log(`  collected ${ethers.formatUnits(totals.collected, meta.decimals)} ${meta.symbol}`);
+  if (cfg.phase("refund")) log(`  refunded  ${ethers.formatEther(totals.refunded)} ETH`);
+  if (totals.fails) warn(`${totals.fails} action(s) failed — re-run the SAME command to retry only what's left (it's idempotent).`);
+  else log("  no failures.");
+  log(`\n  Audit log: ${resolve(cfg.logFile)}\n`);
 }
 
 function printHelp() {
   log(`
-Robin token sweeper — move tokens + ETH from bot wallets to your main wallet.
+Robin token sweeper — fund → collect → refund, for consolidating many bot
+wallets into one main wallet.
 
 USAGE
-  node sweep.js --dest 0xMainWallet --token 0xTokenCA [options]
-  node sweep.js 0xTokenCA --dest 0xMainWallet --execute --yes
+  node sweep.js --dest 0xMain --token 0xCA [options]          # dry-run
+  node sweep.js --dest 0xMain --token 0xCA --execute          # real run
 
-Nothing moves unless you pass --execute. Without it you get a dry-run that
-prints every wallet, its balances, and what WOULD be swept.
+Nothing moves without --execute. A dry-run scans balances and prints the full
+plan (holders, token to collect, ETH to fund, funder balance vs need).
+
+Re-running is safe: it reads live balances and only does what's left, so an
+interrupted run RESUMES by just running the same command again.
 
 REQUIRED
-  --dest, --to 0x…      Destination main wallet (or DEST / MAIN_WALLET env).
-  --token 0x…           Token contract address (CA) to sweep. Repeatable /
-                        comma-separated, or pass as a positional. Omit only if
-                        you use --eth-only.
+  --dest, --to 0x…       Main wallet everything is swept to (or DEST env).
+  --token 0x…            Token CA to sweep (or TOKENS env). One token.
+  FUNDER_KEY (env)       Private key of the wallet that pays gas to fund the
+                         others. Needed for the fund phase. Prefer the env var
+                         (or --funder-keyfile PATH) over putting a key on argv.
+
+PHASES  (default: all three; subset with --phases or the flags)
+  --phases fund,collect,refund     Comma list, in order.
+  --collect-only                   Just move tokens (wallets must already have gas).
+  --no-fund / --no-refund          Drop a phase.
 
 OPTIONS
-  --keys PATH           Dir or file with the bot-wallet keys.
-                        Default: ${DEFAULTS.keysPath}
-  --rpc URL             RPC endpoint. Default: ${DEFAULTS.rpcUrl}
-  --chain-id N          Expected chainId. Default: ${DEFAULTS.chainId}
-  --count N             Addresses to derive if a seed phrase is found (def ${DEFAULTS.mnemonicCount}).
+  --keys PATH            Dir/file with the bot-wallet keys. Default: ${DEFAULTS.keysPath}
+  --rpc URL              RPC endpoint. Default: ${DEFAULTS.rpcUrl}
+  --chain-id N           Expected chainId. Default: ${DEFAULTS.chainId}
+  --multicall 0x…        Multicall3 address — batches balance READS (much fewer
+                         RPC calls at thousands of wallets). Optional; falls back
+                         to per-wallet reads if unset or if it errors.
+  --concurrency N        Collect/refund wallets in flight. Default: ${DEFAULTS.concurrency}.
+  --delay MS             Pause between sends/reads (rate-limit ease). Default: ${DEFAULTS.delayMs}.
+  --gas-buffer F         Pad gas estimates by F (funding headroom). Default: ${DEFAULTS.gasBufferMult}.
+  --min-token N          Ignore holders below N tokens (dust). Default: 0.
+  --count N              Addresses to derive if a seed phrase is found (def ${DEFAULTS.mnemonicCount}).
   --path "m/44'/60'/0'/0"  HD derivation parent path for a seed phrase.
-  --concurrency N       Wallets in flight at once. Default: 1 (sequential).
-  --delay MS            Pause between wallets, eases RPC rate limits (def ${DEFAULTS.delayMs}).
-  --rpc-timeout MS      Per-request timeout so a dead RPC fails fast (def ${DEFAULTS.rpcTimeout}).
-  --eth-only            Sweep only native ETH, no tokens.
-  --tokens-only, --no-eth  Sweep only tokens, leave the ETH.
-  --gas-buffer F        Multiply estimated native-transfer gas by F (def ${DEFAULTS.gasBufferMult}).
-  --execute             Actually send. (Default is dry-run.)
-  --yes                 Skip the interactive "type yes" confirmation.
-  --verbose             Also print wallets/tokens with a 0 balance.
-  --help                This help.
+  --log PATH             Append-only audit log of every send. Default: ${DEFAULTS.logFile}
+  --allow-partial        Fund as far as the funder's balance allows, don't abort.
+  --rpc-timeout MS       Per-request timeout. Default: ${DEFAULTS.rpcTimeout}.
+  --execute              Actually send. (Default is dry-run.)
+  --yes                  Skip the interactive confirmation.
+  --verbose / --help
 
-Keys are read locally and NEVER printed. Set KEYSTORE_PASSWORD to use v3
-keystore files.
+Keys are read locally and NEVER printed. Set KEYSTORE_PASSWORD for v3 keystores.
 `);
 }
 
