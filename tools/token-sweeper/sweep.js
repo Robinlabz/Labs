@@ -544,18 +544,38 @@ async function main() {
     let nonce = await withRetry("funderNonce", () => provider.getTransactionCount(f.address, "pending"));
     let fb = await provider.getBalance(f.address);
     const pending = [];
+    let nonceClashes = 0;
     for (const { w, amount } of toFund) {
       if (fb < amount + refundCost) { warn(`funder out of ETH at ${short(w.address)} — stopping fund phase`); break; }
-      try {
-        const txReq = { to: w.address, value: amount, nonce: nonce, gasLimit: nativeGas };
-        if (fee.maxFeePerGas) { txReq.maxFeePerGas = maxFee; txReq.maxPriorityFeePerGas = maxPriority; } else txReq.gasPrice = maxFee;
-        const tx = await withRetry(`fund ${short(w.address)}`, () => f.sendTransaction(txReq));
-        pending.push({ w, amount, hash: tx.hash, wait: tx.wait(cfg.confirmations) });
-        audit(cfg, { phase: "fund", to: w.address, amount: amount.toString(), tx: tx.hash });
-        nonce++; fb -= amount + refundCost;
-        if (cfg.delayMs) await sleep(cfg.delayMs);
-      } catch (e) { totals.fails++; warn(`fund ${short(w.address)} failed: ${e?.shortMessage || e?.message}`); break; }
+      let ok = false;
+      for (let attempt = 0; attempt < 5 && !ok; attempt++) {
+        try {
+          const txReq = { to: w.address, value: amount, nonce: nonce, gasLimit: nativeGas };
+          if (fee.maxFeePerGas) { txReq.maxFeePerGas = maxFee; txReq.maxPriorityFeePerGas = maxPriority; } else txReq.gasPrice = maxFee;
+          const tx = await f.sendTransaction(txReq);
+          pending.push({ w, amount, hash: tx.hash, wait: tx.wait(cfg.confirmations) });
+          audit(cfg, { phase: "fund", to: w.address, amount: amount.toString(), tx: tx.hash });
+          nonce++; fb -= amount + refundCost; ok = true;
+        } catch (e) {
+          const msg = (e?.shortMessage || e?.message || "").toLowerCase();
+          if (msg.includes("nonce")) {
+            // Funder nonce drifted — almost always another process (your bot!)
+            // is sending from the SAME wallet. Resync from chain and retry this
+            // wallet instead of aborting the whole phase.
+            nonceClashes++;
+            nonce = await provider.getTransactionCount(f.address, "pending").catch(() => nonce + 1);
+            await sleep(300 + 300 * attempt);
+          } else {
+            warn(`fund ${short(w.address)} failed: ${e?.shortMessage || e?.message}`);
+            totals.fails++; ok = true; // skip this wallet, keep going
+          }
+        }
+      }
+      if (!ok) { totals.fails++; warn(`fund ${short(w.address)} gave up after nonce retries`); }
+      if (cfg.delayMs) await sleep(cfg.delayMs);
     }
+    if (nonceClashes > 5)
+      warn(`${nonceClashes} funder-nonce clashes — wallet ${short(f.address)} is in use by another process. Stop your bot, or use a dedicated funder wallet (see below).`);
     // wait for funding to mine so collect sees the gas
     log(`  FUND — waiting on ${pending.length} tx(s) to confirm…`);
     for (const p of pending) {
