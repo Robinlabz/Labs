@@ -175,6 +175,7 @@ function parseConfig(argv) {
     logFile: opts.log || env.LOG_FILE || DEFAULTS.logFile,
     minToken: opts["min-token"] || env.MIN_TOKEN || "0",
     limit: Number(opts.limit || env.LIMIT || 0),
+    maxFund: opts["max-fund"] || env.MAX_FUND || "",
     execute: flags.has("execute"),
     yes: flags.has("yes"),
     allowPartial: flags.has("allow-partial"),
@@ -459,14 +460,34 @@ async function main() {
 
   // build work lists
   const minToken = token ? ethers.parseUnits(String(cfg.minToken || "0"), meta.decimals) : 0n;
-  const holders = token ? wallets.filter((w) => (tokenBal.get(w.address.toLowerCase()) || 0n) > minToken) : [];
+  let holders = token ? wallets.filter((w) => (tokenBal.get(w.address.toLowerCase()) || 0n) > minToken) : [];
+
+  // --max-fund: cap the run to as many real holders as the ETH budget covers.
+  // Applied AFTER the scan (unlike --limit, which slices raw file order), so it
+  // targets wallets that actually hold the token regardless of file ordering.
+  if (cfg.maxFund && holders.length) {
+    const budget = ethers.parseEther(String(cfg.maxFund));
+    let spent = 0n, k = 0;
+    for (const w of holders) {
+      const have = ethBal.get(w.address.toLowerCase()) || 0n;
+      const cost = (have < perWalletNeed ? perWalletNeed - have : 0n) + refundCost; // fund + funder gas
+      if (spent + cost > budget) break;
+      spent += cost; k++;
+    }
+    log(`  --max-fund ${cfg.maxFund} ETH → processing the first ${k} of ${holders.length} holders (~${ethers.formatEther(spent)} ETH)`);
+    holders = holders.slice(0, k);
+  }
+
   const toFund = holders
     .map((w) => ({ w, have: ethBal.get(w.address.toLowerCase()) || 0n }))
     .filter((x) => x.have < perWalletNeed)
     .map((x) => ({ w: x.w, amount: perWalletNeed - x.have }));
   const fundTotal = toFund.reduce((s, x) => s + x.amount, 0n);
   const tokenTotal = holders.reduce((s, w) => s + (tokenBal.get(w.address.toLowerCase()) || 0n), 0n);
-  const refundable = wallets.filter((w) => (ethBal.get(w.address.toLowerCase()) || 0n) > refundCost);
+  // When the run is scoped (limit/max-fund), refund only the wallets we touched;
+  // otherwise sweep every loaded wallet that has ETH.
+  const refundScope = (cfg.maxFund || cfg.limit) ? holders : wallets;
+  const refundable = refundScope.filter((w) => (ethBal.get(w.address.toLowerCase()) || 0n) > refundCost);
 
   // plan
   log("");
@@ -565,11 +586,11 @@ async function main() {
 
   // ── PHASE 3: REFUND (per-wallet, bounded concurrency, reads fresh balance) ────
   if (cfg.phase("refund")) {
-    // every loaded wallet may hold ETH now (gas float + pre-existing); read fresh
-    log(`  REFUND — sweeping leftover ETH from up to ${wallets.length} wallet(s)…`);
+    // every wallet in scope may hold ETH now (gas float + pre-existing); read fresh
+    log(`  REFUND — sweeping leftover ETH from up to ${refundScope.length} wallet(s)…`);
     let done = 0;
     const refErc = token ? new ethers.Contract(token, ERC20_ABI, provider) : null;
-    const res = await mapPool(wallets, cfg.concurrency, async (entry) => {
+    const res = await mapPool(refundScope, cfg.concurrency, async (entry) => {
       const w = entry.signer.connect(provider);
       // Don't strip gas from a wallet that still holds tokens (collect not done
       // yet on a partial re-run) — leave its gas so the retry can collect.
@@ -640,7 +661,10 @@ OPTIONS
   --delay MS             Pause between sends/reads (rate-limit ease). Default: ${DEFAULTS.delayMs}.
   --gas-buffer F         Pad gas estimates by F (funding headroom). Default: ${DEFAULTS.gasBufferMult}.
   --min-token N          Ignore holders below N tokens (dust). Default: 0.
-  --limit N              Only process the first N loaded wallets (test/batch runs).
+  --limit N              Only process the first N loaded wallets (raw file order).
+  --max-fund ETH         Cap the run to as many real holders as this ETH budget
+                         covers (applied AFTER the scan — targets actual holders
+                         regardless of file order). Best knob for a bounded test.
   --count N              Addresses to derive if a seed phrase is found (def ${DEFAULTS.mnemonicCount}).
   --path "m/44'/60'/0'/0"  HD derivation parent path for a seed phrase.
   --log PATH             Append-only audit log of every send. Default: ${DEFAULTS.logFile}
