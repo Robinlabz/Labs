@@ -174,6 +174,7 @@ function parseConfig(argv) {
     rpcTimeout: Number(opts["rpc-timeout"] || env.RPC_TIMEOUT || DEFAULTS.rpcTimeout),
     logFile: opts.log || env.LOG_FILE || DEFAULTS.logFile,
     minToken: opts["min-token"] || env.MIN_TOKEN || "0",
+    limit: Number(opts.limit || env.LIMIT || 0),
     execute: flags.has("execute"),
     yes: flags.has("yes"),
     allowPartial: flags.has("allow-partial"),
@@ -410,10 +411,11 @@ async function main() {
 
   // wallets
   log("  Loading wallets…");
-  const wallets = await loadWallets(cfg.keysPath, cfg);
+  let wallets = await loadWallets(cfg.keysPath, cfg);
   if (wallets.length === 0) throw new Error("No private keys found under the keys path. Check --keys / KEYS.");
-  const byAddr = new Map(wallets.map((w) => [w.address.toLowerCase(), w]));
-  log(`  Found ${wallets.length} wallet(s).`);
+  const totalLoaded = wallets.length;
+  if (cfg.limit > 0 && wallets.length > cfg.limit) wallets = wallets.slice(0, cfg.limit); // test/batch runs
+  log(`  Found ${totalLoaded} wallet(s).${cfg.limit > 0 && totalLoaded > cfg.limit ? `  Using the first ${cfg.limit} (--limit).` : ""}`);
   if (wallets.length <= 20) for (const w of wallets) log(`    ${w.address}`);
   log("");
 
@@ -638,6 +640,7 @@ OPTIONS
   --delay MS             Pause between sends/reads (rate-limit ease). Default: ${DEFAULTS.delayMs}.
   --gas-buffer F         Pad gas estimates by F (funding headroom). Default: ${DEFAULTS.gasBufferMult}.
   --min-token N          Ignore holders below N tokens (dust). Default: 0.
+  --limit N              Only process the first N loaded wallets (test/batch runs).
   --count N              Addresses to derive if a seed phrase is found (def ${DEFAULTS.mnemonicCount}).
   --path "m/44'/60'/0'/0"  HD derivation parent path for a seed phrase.
   --log PATH             Append-only audit log of every send. Default: ${DEFAULTS.logFile}
