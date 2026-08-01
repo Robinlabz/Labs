@@ -62,6 +62,11 @@ const DEFAULTS = {
   rpcTimeout: 30000,            // per-request timeout (ms) so a dead RPC fails fast
   logFile: "sweep-audit.jsonl", // append-only record of every send
   fundReserve: 60000n,          // min gas units assumed for a token transfer if estimate fails
+  // Multicall3 is deployed + verified on Robinhood Chain at the canonical
+  // deterministic address, so use it by default to batch the balance scan.
+  // Falls back to per-wallet reads automatically if the call ever fails, and
+  // --no-multicall disables it.
+  multicall: "0xcA11bde05977b3631167028862bE2a173976CA11",
 };
 
 const ERC20_ABI = [
@@ -159,7 +164,7 @@ function parseConfig(argv) {
     funderKeyfile: opts["funder-keyfile"] || env.FUNDER_KEYFILE || "",
     tokens,
     phases, phase,
-    multicall: opts.multicall || env.MULTICALL3 || "",
+    multicall: flags.has("no-multicall") ? "" : (opts.multicall || env.MULTICALL3 || DEFAULTS.multicall),
     mnemonicCount: Number(opts.count || env.MNEMONIC_COUNT || DEFAULTS.mnemonicCount),
     derivePath: opts.path || env.DERIVE_PATH || DEFAULTS.derivePath,
     keystorePassword: env.KEYSTORE_PASSWORD || "",
@@ -286,25 +291,30 @@ async function scanBalances(wallets, provider, cfg, token) {
   const ethBal = new Map();
 
   if (token && cfg.multicall && ethers.isAddress(cfg.multicall)) {
-    const mc = new ethers.Contract(cfg.multicall, MULTICALL3_ABI, provider);
-    const erc = new ethers.Interface(ERC20_ABI);
-    const CHUNK = 400;
-    for (let i = 0; i < addrs.length; i += CHUNK) {
-      const slice = addrs.slice(i, i + CHUNK);
-      const calls = [];
-      for (const a of slice) {
-        calls.push({ target: token, allowFailure: true, callData: erc.encodeFunctionData("balanceOf", [a]) });
-        calls.push({ target: cfg.multicall, allowFailure: true, callData: mc.interface.encodeFunctionData("getEthBalance", [a]) });
+    try {
+      const mc = new ethers.Contract(cfg.multicall, MULTICALL3_ABI, provider);
+      const erc = new ethers.Interface(ERC20_ABI);
+      const CHUNK = 400;
+      for (let i = 0; i < addrs.length; i += CHUNK) {
+        const slice = addrs.slice(i, i + CHUNK);
+        const calls = [];
+        for (const a of slice) {
+          calls.push({ target: token, allowFailure: true, callData: erc.encodeFunctionData("balanceOf", [a]) });
+          calls.push({ target: cfg.multicall, allowFailure: true, callData: mc.interface.encodeFunctionData("getEthBalance", [a]) });
+        }
+        const res = await withRetry(`multicall ${i}`, () => mc.aggregate3(calls));
+        for (let j = 0; j < slice.length; j++) {
+          const tRes = res[2 * j], eRes = res[2 * j + 1];
+          tokenBal.set(slice[j].toLowerCase(), tRes.success ? erc.decodeFunctionResult("balanceOf", tRes.returnData)[0] : 0n);
+          ethBal.set(slice[j].toLowerCase(), eRes.success ? mc.interface.decodeFunctionResult("getEthBalance", eRes.returnData)[0] : 0n);
+        }
+        log(`    scanned ${Math.min(i + CHUNK, addrs.length)}/${addrs.length} (multicall)`);
       }
-      const res = await withRetry(`multicall ${i}`, () => mc.aggregate3(calls));
-      for (let j = 0; j < slice.length; j++) {
-        const tRes = res[2 * j], eRes = res[2 * j + 1];
-        tokenBal.set(slice[j].toLowerCase(), tRes.success ? erc.decodeFunctionResult("balanceOf", tRes.returnData)[0] : 0n);
-        ethBal.set(slice[j].toLowerCase(), eRes.success ? mc.interface.decodeFunctionResult("getEthBalance", eRes.returnData)[0] : 0n);
-      }
-      log(`    scanned ${Math.min(i + CHUNK, addrs.length)}/${addrs.length}`);
+      return { tokenBal, ethBal };
+    } catch (e) {
+      warn(`multicall scan failed (${e?.shortMessage || e?.message}); falling back to per-wallet reads`);
+      tokenBal.clear(); ethBal.clear();
     }
-    return { tokenBal, ethBal };
   }
 
   // fallback: per-wallet reads (bounded concurrency). Handles token === null too.
@@ -355,6 +365,7 @@ async function main() {
   log(`  token CA     ${token || "(none — ETH only)"}`);
   log(`  funder       ${funder ? funder.address : (cfg.phase("fund") ? "⚠️  none (set FUNDER_KEY)" : "n/a")}`);
   log(`  keys from    ${resolve(cfg.keysPath)}`);
+  log(`  balance read ${cfg.multicall ? "multicall " + short(cfg.multicall) : "per-wallet"}`);
   log(`  audit log    ${resolve(cfg.logFile)}`);
   log("");
 
@@ -587,9 +598,11 @@ OPTIONS
   --keys PATH            Dir/file with the bot-wallet keys. Default: ${DEFAULTS.keysPath}
   --rpc URL              RPC endpoint. Default: ${DEFAULTS.rpcUrl}
   --chain-id N           Expected chainId. Default: ${DEFAULTS.chainId}
-  --multicall 0x…        Multicall3 address — batches balance READS (much fewer
-                         RPC calls at thousands of wallets). Optional; falls back
-                         to per-wallet reads if unset or if it errors.
+  --multicall 0x…        Multicall3 address for batched balance READS. Defaults
+                         to the canonical address (deployed + verified on
+                         Robinhood Chain). Auto-falls back to per-wallet reads if
+                         it errors.
+  --no-multicall         Disable multicall; read balances per wallet.
   --concurrency N        Collect/refund wallets in flight. Default: ${DEFAULTS.concurrency}.
   --delay MS             Pause between sends/reads (rate-limit ease). Default: ${DEFAULTS.delayMs}.
   --gas-buffer F         Pad gas estimates by F (funding headroom). Default: ${DEFAULTS.gasBufferMult}.

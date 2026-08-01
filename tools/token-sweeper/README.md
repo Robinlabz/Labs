@@ -97,8 +97,8 @@ node sweep.js --dest 0xMain --phases refund --execute
 # fund only as far as the funder's ETH allows, instead of aborting
 node sweep.js --dest 0xMain --token 0xCA --execute --allow-partial
 
-# batch balance reads via Multicall3 (verify the address on the explorer first)
-node sweep.js --dest 0xMain --token 0xCA --multicall 0xcA11bde05977b3631167028862bE2a173976CA11
+# balance scan uses Multicall3 by default; disable it if you prefer per-wallet reads
+node sweep.js --dest 0xMain --token 0xCA --no-multicall
 ```
 
 ## Scale & RPC
@@ -110,8 +110,10 @@ throttles hard. Tuning knobs:
 - `--concurrency N` — collect/refund wallets in flight (default 5). Lower it if
   your RPC complains; raise it on a fast endpoint.
 - `--delay MS` — pause between sends/reads (default 120).
-- `--multicall 0x…` — collapses the balance scan from thousands of calls to a
-  handful (falls back to per-wallet reads if unset or if it errors).
+- **Multicall3 is used by default** — it's deployed + verified on Robinhood Chain
+  at `0xcA11bde05977b3631167028862bE2a173976CA11`, and it collapses the balance
+  scan from tens of thousands of calls to a handful. It auto-falls back to
+  per-wallet reads if the batched call ever errors; `--no-multicall` turns it off.
 
 The chain's per-tx gas cap is `2^24`, which bounds multicall batch size; the
 script chunks reads at 400 wallets per call.
@@ -138,7 +140,7 @@ phrase derives `--count` addresses (default 50) at `--path` (default
 | `--phases` | `fund,collect,refund` (default) or a subset, in order |
 | `--keys`, `KEYS` | Where the bot-wallet keys are |
 | `--rpc`, `--chain-id` | Chain (defaults: Robinhood Chain, `4663`) |
-| `--multicall` | Multicall3 address for batched reads |
+| `--multicall` / `--no-multicall` | Multicall3 batched reads (on by default) |
 | `--concurrency`, `--delay` | Throughput vs. RPC load |
 | `--execute` / `--yes` | Actually send / skip the confirm |
 | `--allow-partial` | Fund as far as the funder allows |
