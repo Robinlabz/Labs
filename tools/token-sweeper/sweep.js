@@ -619,11 +619,14 @@ async function main() {
     const refundIter = cfg.phase("fund") ? refundScope : refundable;
     log(`  REFUND — sweeping leftover ETH from ${refundIter.length} wallet(s) with recoverable ETH…`);
     let done = 0;
-    const refErc = token ? new ethers.Contract(token, ERC20_ABI, provider) : null;
+    // Only preserve a token-holder's gas when we're ALSO collecting this run
+    // (so a later collect can still move the token). For a refund-only run the
+    // user wants every wallet's ETH, STAG-holder or not — so don't skip.
+    const refErc = (token && cfg.phase("collect")) ? new ethers.Contract(token, ERC20_ABI, provider) : null;
     const res = await mapPool(refundIter, cfg.concurrency, async (entry) => {
       const w = entry.signer.connect(provider);
-      // Don't strip gas from a wallet that still holds tokens (collect not done
-      // yet on a partial re-run) — leave its gas so the retry can collect.
+      // (collect active) don't strip gas from a wallet that still holds tokens —
+      // leave its gas so the collect can move them.
       if (refErc && (await withRetry("balanceOf", () => refErc.balanceOf(entry.address))) > 0n) return 0n;
       const bal = await withRetry("getBalance", () => provider.getBalance(entry.address));
       const value = bal - refundCost;
