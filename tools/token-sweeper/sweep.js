@@ -304,22 +304,27 @@ async function scanBalances(wallets, provider, cfg, token) {
   const tokenBal = new Map();
   const ethBal = new Map();
 
-  if (token && cfg.multicall && ethers.isAddress(cfg.multicall)) {
+  if (cfg.multicall && ethers.isAddress(cfg.multicall)) {
     try {
       const mc = new ethers.Contract(cfg.multicall, MULTICALL3_ABI, provider);
       const erc = new ethers.Interface(ERC20_ABI);
+      const per = token ? 2 : 1; // balanceOf + getEthBalance, or just getEthBalance
       const CHUNK = 400;
       for (let i = 0; i < addrs.length; i += CHUNK) {
         const slice = addrs.slice(i, i + CHUNK);
         const calls = [];
         for (const a of slice) {
-          calls.push({ target: token, allowFailure: true, callData: erc.encodeFunctionData("balanceOf", [a]) });
+          if (token) calls.push({ target: token, allowFailure: true, callData: erc.encodeFunctionData("balanceOf", [a]) });
           calls.push({ target: cfg.multicall, allowFailure: true, callData: mc.interface.encodeFunctionData("getEthBalance", [a]) });
         }
         const res = await withRetry(`multicall ${i}`, () => mc.aggregate3(calls));
         for (let j = 0; j < slice.length; j++) {
-          const tRes = res[2 * j], eRes = res[2 * j + 1];
-          tokenBal.set(slice[j].toLowerCase(), tRes.success ? erc.decodeFunctionResult("balanceOf", tRes.returnData)[0] : 0n);
+          const base = j * per;
+          if (token) {
+            const tRes = res[base];
+            tokenBal.set(slice[j].toLowerCase(), tRes.success ? erc.decodeFunctionResult("balanceOf", tRes.returnData)[0] : 0n);
+          } else tokenBal.set(slice[j].toLowerCase(), 0n);
+          const eRes = res[base + per - 1];
           ethBal.set(slice[j].toLowerCase(), eRes.success ? mc.interface.decodeFunctionResult("getEthBalance", eRes.returnData)[0] : 0n);
         }
         log(`    scanned ${Math.min(i + CHUNK, addrs.length)}/${addrs.length} (multicall)`);
@@ -608,11 +613,14 @@ async function main() {
 
   // ── PHASE 3: REFUND (per-wallet, bounded concurrency, reads fresh balance) ────
   if (cfg.phase("refund")) {
-    // every wallet in scope may hold ETH now (gas float + pre-existing); read fresh
-    log(`  REFUND — sweeping leftover ETH from up to ${refundScope.length} wallet(s)…`);
+    // When we didn't fund this run, the scan balances are authoritative — only
+    // touch wallets the scan already showed as having recoverable ETH (fast, no
+    // re-reading all 39k). After a fund phase balances changed, so re-check all.
+    const refundIter = cfg.phase("fund") ? refundScope : refundable;
+    log(`  REFUND — sweeping leftover ETH from ${refundIter.length} wallet(s) with recoverable ETH…`);
     let done = 0;
     const refErc = token ? new ethers.Contract(token, ERC20_ABI, provider) : null;
-    const res = await mapPool(refundScope, cfg.concurrency, async (entry) => {
+    const res = await mapPool(refundIter, cfg.concurrency, async (entry) => {
       const w = entry.signer.connect(provider);
       // Don't strip gas from a wallet that still holds tokens (collect not done
       // yet on a partial re-run) — leave its gas so the retry can collect.
