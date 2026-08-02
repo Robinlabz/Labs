@@ -594,9 +594,16 @@ async function main() {
 
   // ── PHASE 2: COLLECT (per-wallet, bounded concurrency) ───────────────────────
   if (cfg.phase("collect") && token && holders.length) {
-    log(`  COLLECT — sweeping ${meta.symbol} from ${holders.length} wallet(s)…`);
+    // When we didn't fund this run, only try holders that already have enough
+    // gas to move their token (from the scan) — skip the gasless ones instead
+    // of attempting and failing on each (which is painfully slow at tens of
+    // thousands of wallets). After a fund phase, all holders were just funded.
+    const collectCost = collectGas * maxFee; // ETH a wallet needs for one transfer
+    const collectIter = cfg.phase("fund") ? holders
+      : holders.filter((w) => (ethBal.get(w.address.toLowerCase()) || 0n) * 10n >= collectCost * 8n);
+    log(`  COLLECT — sweeping ${meta.symbol} from ${collectIter.length} wallet(s) with gas…`);
     let done = 0;
-    const res = await mapPool(holders, cfg.concurrency, async (entry) => {
+    const res = await mapPool(collectIter, cfg.concurrency, async (entry) => {
       const w = entry.signer.connect(provider);
       const erc = new ethers.Contract(token, ERC20_ABI, w);
       const bal = await withRetry("balanceOf", () => erc.balanceOf(entry.address));
@@ -604,7 +611,7 @@ async function main() {
       const tx = await withRetry(`collect ${short(entry.address)}`, () => erc.transfer(cfg.dest, bal));
       audit(cfg, { phase: "collect", from: entry.address, amount: bal.toString(), tx: tx.hash });
       await withRetry("wait", () => tx.wait(cfg.confirmations));
-      if (++done % 100 === 0) log(`    collected ${done}/${holders.length}`);
+      if (++done % 100 === 0) log(`    collected ${done}/${collectIter.length}`);
       return bal;
     }, cfg.delayMs);
     for (const r of res) { if (r?.error) { totals.fails++; } else totals.collected += (r || 0n); }
