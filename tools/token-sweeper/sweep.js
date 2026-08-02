@@ -556,6 +556,7 @@ async function main() {
           pending.push({ w, amount, hash: tx.hash, wait: tx.wait(cfg.confirmations) });
           audit(cfg, { phase: "fund", to: w.address, amount: amount.toString(), tx: tx.hash });
           nonce++; fb -= amount + refundCost; ok = true;
+          if (pending.length % 200 === 0) log(`    funded ${pending.length}/${toFund.length}…`);
         } catch (e) {
           const msg = (e?.shortMessage || e?.message || "").toLowerCase();
           if (msg.includes("nonce")) {
@@ -563,6 +564,7 @@ async function main() {
             // is sending from the SAME wallet. Resync from chain and retry this
             // wallet instead of aborting the whole phase.
             nonceClashes++;
+            if (nonceClashes === 1) warn(`funder-nonce contention — resyncing (is another process using ${short(f.address)}?)`);
             nonce = await provider.getTransactionCount(f.address, "pending").catch(() => nonce + 1);
             await sleep(300 + 300 * attempt);
           } else {
