@@ -1,0 +1,17 @@
+{
+  "name": "robin-token-sweeper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sweep a token (by CA) + native ETH out of bot wallets into one main wallet on Robinhood Chain.",
+  "bin": { "sweep": "sweep.js" },
+  "scripts": {
+    "sweep": "node sweep.js",
+    "dry": "node sweep.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ethers": "^6.13.4"
+  }
+}

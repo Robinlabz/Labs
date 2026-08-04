@@ -21,3 +21,7 @@ indexer/data/
 *.db-shm
 *.db-wal
 *.log
+
+# token-sweeper local run output (audit logs / address dumps — never commit)
+tools/token-sweeper/*.jsonl
+tools/token-sweeper/loaded-addresses.txt
