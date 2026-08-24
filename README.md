@@ -47,7 +47,7 @@ a deploy key. Real keys are never committed.
 
 | Contract | Address |
 |---|---|
-| Pad factory | `0xc208e393990B6f2BC8D0d330E0be38C6eCA1e25B` |
+| Pad factory | `0x8aa92d5297fEC45cbC7F16A32F4aed5D3AC58074` |
 | Pad router  | `0x1988dEFfE3799Fb56F949ffb20C65D20c1547570` |
 | WETH        | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` |
 | UniswapV3 factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` |
